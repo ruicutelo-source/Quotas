@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="pt-PT">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Quotas</title>
+<meta name="theme-color" content="#1F3864">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="stylesheet" href="estilo.css">
+</head>
+<body>
+<header>
+  <div class="marca"><img id="hdr-logo" alt="" style="display:none"><h1 id="hdr-tit">Quotas</h1></div>
+  <div class="sub"><div id="hdr-user"></div><div id="hdr-perfil"></div></div>
+</header>
+
+<main>
+<!-- ======================= INÍCIO ======================= -->
+<section class="ecra" id="ecra-inicio">
+  <h2 style="margin-top:6px">Sócios</h2>
+  <div class="grelha g4">
+    <div class="cartao kpi"><div class="rot">Sócios ativos</div><div class="val azul" id="ini-ativos"></div></div>
+    <div class="cartao kpi"><div class="rot" id="ini-rot-novos">Novos este ano</div><div class="val verde" id="ini-novos"></div></div>
+    <div class="cartao kpi"><div class="rot" id="ini-rot-saidas">Saídas este ano</div><div class="val verm" id="ini-saidas"></div></div>
+    <div class="cartao kpi"><div class="rot">Total registados</div><div class="val azul" id="ini-total"></div></div>
+  </div>
+  <div class="grelha g3" style="margin-top:12px">
+    <div class="bloco"><div class="tit navy"><span>ATIVOS POR TIPO</span></div><div id="ini-tipos"></div></div>
+    <div class="bloco"><div class="tit navy"><span>ATIVOS POR PERIODICIDADE</span></div><div id="ini-period"></div></div>
+    <div class="bloco"><div class="tit verde"><span>ANIVERSÁRIOS ESTE MÊS</span></div><div id="ini-aniv"></div></div>
+  </div>
+  <div class="nota" style="margin-top:12px">As quotas, pagamentos e dívidas entram na Fase 2.</div>
+</section>
+
+<!-- ======================= SÓCIOS ======================= -->
+<section class="ecra" id="ecra-socios">
+  <div class="barra">
+    <input type="search" id="soc-pesq" placeholder="Pesquisar nome, nº, telemóvel, email, localidade…">
+    <button class="bt" id="soc-novo">+ Novo sócio</button>
+  </div>
+  <div class="linha quebra" style="margin-bottom:8px">
+    <div class="seletor" id="soc-estado">
+      <button data-v="ativos" class="ativo">Ativos</button><button data-v="inativos">Inativos</button><button data-v="todos">Todos</button>
+    </div>
+    <select id="soc-tipo" style="width:auto;min-width:160px"></select>
+    <select id="soc-period" style="width:auto;min-width:150px">
+      <option value="">Todas as periodicidades</option><option>Mensal</option><option>Anual</option>
+    </select>
+  </div>
+  <div class="bloco"><div class="tit navy"><span>SÓCIOS</span><span id="soc-n"></span></div>
+    <div class="rolar" id="soc-lista"></div></div>
+</section>
+
+<!-- ======================= CLUBE ======================= -->
+<section class="ecra" id="ecra-clube">
+  <div class="abas" id="clube-abas">
+    <button data-aba="dados" class="ativo">Dados e valores</button>
+    <button data-aba="cargos">Cargos</button>
+    <button data-aba="listas">Listas</button>
+    <button data-aba="utilizadores" id="aba-utilizadores">Utilizadores</button>
+  </div>
+
+  <div class="aba ativo" id="aba-dados">
+    <div class="aviso" id="clb-so-ler" style="display:none">Só o Administrador pode alterar estes dados.</div>
+    <div class="grelha g2">
+      <div class="cartao">
+        <h3 style="margin-top:0">Dados do clube</h3>
+        <label class="campo">Nome</label><input type="text" id="clb-nome">
+        <div class="grelha g2" style="gap:10px">
+          <div><label class="campo">NIF</label><input type="text" id="clb-nif" inputmode="numeric" maxlength="9"></div>
+          <div><label class="campo">Telefone</label><input type="text" id="clb-tel" inputmode="tel"></div>
+        </div>
+        <label class="campo">Email</label><input type="email" id="clb-email">
+        <label class="campo">Morada</label><input type="text" id="clb-morada">
+        <div class="grelha g2" style="gap:10px">
+          <div><label class="campo">Código postal</label><input type="text" id="clb-cp" placeholder="0000-000" maxlength="8"></div>
+          <div><label class="campo">Localidade</label><input type="text" id="clb-local"></div>
+        </div>
+      </div>
+      <div>
+        <div class="cartao">
+          <h3 style="margin-top:0">Valores</h3>
+          <div class="grelha g3" style="gap:10px">
+            <div><label class="campo">Joia (€)</label><input type="text" id="clb-joia" inputmode="decimal"></div>
+            <div><label class="campo">Quota mensal (€)</label><input type="text" id="clb-qmensal" inputmode="decimal"></div>
+            <div><label class="campo">Quota anual (€)</label><input type="text" id="clb-qanual" inputmode="decimal"></div>
+          </div>
+          <div class="nota">A joia é cobrada uma vez, na inscrição. A quota anual pode ter desconto em relação a 12 mensalidades.</div>
+        </div>
+        <div class="cartao" style="margin-top:12px">
+          <h3 style="margin-top:0">Logótipo</h3>
+          <div class="linha quebra">
+            <div class="logo-caixa" id="clb-logo-caixa"><span class="nota">Sem logótipo</span></div>
+            <div>
+              <input type="file" id="clb-logo-fich" accept="image/*" style="display:none">
+              <button class="bt sec peq" id="clb-logo-esc">Escolher imagem</button>
+              <button class="bt sec peq verm-txt" id="clb-logo-tirar">Remover</button>
+              <div class="nota">Aparece no topo da app e, na Fase 3, nos recibos.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="linha" style="justify-content:flex-end;margin-top:12px"><button class="bt" id="clb-gravar">Gravar</button></div>
+  </div>
+
+  <div class="aba" id="aba-cargos">
+    <div class="barra"><div class="cresce nota" style="margin:0">Órgãos sociais do clube.</div>
+      <button class="bt" id="cg-novo">+ Novo cargo</button></div>
+    <div class="bloco"><div class="tit navy"><span>ÓRGÃOS SOCIAIS</span></div><div class="rolar" id="cg-lista"></div></div>
+  </div>
+
+  <div class="aba" id="aba-listas">
+    <div class="grelha g2">
+      <div class="bloco"><div class="tit navy"><span>TIPOS DE SÓCIO</span></div><div id="ls-tipos"></div>
+        <div class="linha" style="padding:10px" id="ls-tipos-add"><input type="text" id="ls-tipos-novo" placeholder="Novo tipo de sócio"><button class="bt peq" id="ls-tipos-bt">Adicionar</button></div></div>
+      <div class="bloco"><div class="tit navy"><span>FORMAS DE PAGAMENTO</span></div><div id="ls-formas"></div>
+        <div class="linha" style="padding:10px" id="ls-formas-add"><input type="text" id="ls-formas-novo" placeholder="Nova forma de pagamento"><button class="bt peq" id="ls-formas-bt">Adicionar</button></div></div>
+    </div>
+    <div class="nota">Mudar o nome de um tipo de sócio muda-o também em todas as fichas. Um tipo em uso não pode ser apagado.</div>
+  </div>
+
+  <div class="aba" id="aba-utilizadores">
+    <div class="aviso">Antes de adicionar alguém aqui, crie a conta dessa pessoa na consola do Firebase
+      (<b>Authentication → Usuários → Adicionar usuário</b>) com o mesmo email.</div>
+    <div class="barra"><div class="cresce"></div><button class="bt" id="ut-novo">+ Novo utilizador</button></div>
+    <div class="bloco"><div class="tit navy"><span>UTILIZADORES DA APP</span></div><div class="rolar" id="ut-lista"></div></div>
+    <div class="nota"><b>Administrador:</b> tudo. <b>Tesoureiro:</b> sócios (e, nas próximas fases, quotas, recibos e tesouraria).
+      <b>Consulta:</b> só ver, sem NIF nem NIB.</div>
+  </div>
+</section>
+
+<!-- ======================= SESSÃO ======================= -->
+<section class="ecra" id="ecra-sessao">
+  <h2 style="margin-top:6px">Sessão</h2>
+  <div class="cartao"><div class="nota" id="ses-info" style="margin-top:0"></div>
+    <button class="bt sec" id="ses-sair">Terminar sessão</button></div>
+  <h2>Mudar a palavra-passe</h2>
+  <div class="cartao" style="max-width:480px">
+    <label class="campo">Palavra-passe atual</label><input type="password" id="ses-atual" autocomplete="current-password">
+    <label class="campo">Nova palavra-passe (mínimo 8 caracteres)</label><input type="password" id="ses-nova" autocomplete="new-password">
+    <label class="campo">Repetir a nova palavra-passe</label><input type="password" id="ses-nova2" autocomplete="new-password">
+    <button class="bt" id="ses-mudar" style="margin-top:12px">Mudar palavra-passe</button>
+    <div class="nota" id="ses-msg"></div>
+  </div>
+  <div class="nota" style="margin-top:14px" id="ses-versao"></div>
+</section>
+</main>
+
+<nav id="nav"></nav>
+
+<div class="modal-fundo" id="modal"><div class="modal">
+  <h3 id="modal-tit"></h3><div id="modal-corpo"></div>
+  <div class="acoes" id="modal-acoes"></div>
+</div></div>
+<div class="toast" id="toast"></div>
+
+<div id="ecra-login" class="ecra-cheio" style="display:none">
+  <div class="cartao" style="max-width:420px;width:100%;padding:22px">
+    <h2 style="margin-top:0">Quotas</h2>
+    <div class="nota">Entre com o seu email e palavra-passe.</div>
+    <input type="email" id="login-email" placeholder="Email" autocomplete="username" style="margin-top:10px">
+    <input type="password" id="login-pass" placeholder="Palavra-passe" autocomplete="current-password" style="margin-top:10px">
+    <button class="bt" id="login-entrar" style="width:100%;margin-top:14px">Entrar</button>
+    <div class="nota verm" id="login-erro"></div>
+  </div>
+</div>
+
+<div id="ecra-semacesso" class="ecra-cheio" style="display:none">
+  <div class="cartao" style="max-width:440px;width:100%;padding:22px">
+    <h2 style="margin-top:0">Sem acesso</h2>
+    <p id="semacesso-txt"></p>
+    <button class="bt sec" id="semacesso-sair" style="width:100%">Terminar sessão</button>
+  </div>
+</div>
+
+<script src="validar.js"></script>
+<script src="nucleo.js"></script>
+<script src="inicio.js"></script>
+<script src="socios.js"></script>
+<script src="clube.js"></script>
+<script src="sessao.js"></script>
+<script>arrancar();</script>
+</body>
+</html>
