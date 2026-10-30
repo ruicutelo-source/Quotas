@@ -1,7 +1,7 @@
 // Service worker: guarda a app no aparelho para funcionar sem internet.
 // Ao publicar uma versão nova, aumente o número da versão abaixo.
 const PREFIXO = "quotas-app-";
-const VERSAO = PREFIXO + "1.0.0";
+const VERSAO = PREFIXO + "1.1.0";
 const FICHEIROS = ["./", "./index.html", "./estilo.css", "./validar.js", "./nucleo.js", "./inicio.js", "./socios.js",
                    "./clube.js", "./sessao.js", "./manifest.json", "./icon-192.png", "./icon-512.png",
                    "./icon-maskable-512.png", "./apple-touch-icon.png"];

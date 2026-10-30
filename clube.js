@@ -85,7 +85,7 @@ function desenharCargos(){
   $("cg-lista").innerHTML = tabela([{t: "Órgão"}, {t: "Cargo"}, {t: "Nome"}, {t: "Mandato"}],
     lista.map((c)=>{ const s = c.socioId ? Idx.socio.get(c.socioId) : null;
       return `<tr class="${eAdmin() ? "clic" : ""}" data-id="${esc(c.id)}"><td>${esc(c.orgao)}</td><td>${esc(c.cargo)}</td>
-        <td>${esc(s ? s.nome : c.nome)}${s ? ` <span class="pequeno">(nº ${s.numero})</span>` : ""}</td><td>${esc(c.mandato)}</td></tr>`; }),
+        <td>${esc(s ? s.nome : c.nome)}${s ? ` <span class="pequeno">(${numTxt(s)})</span>` : ""}</td><td>${esc(c.mandato)}</td></tr>`; }),
     "Ainda não há cargos registados.");
   if(eAdmin()) $("cg-lista").querySelectorAll("tr.clic").forEach((tr)=>tr.onclick = ()=>abrirCargo(tr.dataset.id));
 }
@@ -99,7 +99,7 @@ function abrirCargo(id){
     <label class="campo">Cargo</label><input type="text" id="cg-cargo" list="cg-sug" value="${esc(c ? c.cargo : "")}">
     <datalist id="cg-sug">${CARGOS_SUGERIDOS.map((x)=>`<option value="${x}">`).join("")}</datalist>
     <label class="campo">Sócio</label><select id="cg-socio"><option value="">— não é sócio / escrever o nome —</option>
-      ${socios.map((s)=>`<option value="${esc(s.id)}" ${c && c.socioId === s.id ? "selected" : ""}>${esc(s.nome)} (nº ${s.numero})</option>`).join("")}</select>
+      ${socios.map((s)=>`<option value="${esc(s.id)}" ${c && c.socioId === s.id ? "selected" : ""}>${esc(s.nome)} (${numTxt(s)})</option>`).join("")}</select>
     <label class="campo">Nome (se não for sócio)</label><input type="text" id="cg-nome" value="${esc(c && !c.socioId ? c.nome : "")}">
     <label class="campo">Mandato</label><input type="text" id="cg-mandato" placeholder="ex.: 2025-2027" value="${esc(c ? c.mandato : ultimoMandato)}">
     <div class="aviso" id="cg-erro" style="display:none"></div>`,

@@ -8,9 +8,9 @@ RENDER.inicio = function(){
   $("ini-ativos").textContent = ativos.length;
   $("ini-total").textContent = D.socios.length;
   $("ini-rot-novos").textContent = "Entradas em " + ano;
-  $("ini-rot-saidas").textContent = "Saídas em " + ano;
+  $("ini-rot-saidas").textContent = "Inativos";
   $("ini-novos").textContent = D.socios.filter((s)=>String(s.dataEntrada || "").startsWith(ano)).length;
-  $("ini-saidas").textContent = D.socios.filter((s)=>String(s.dataSaida || "").startsWith(ano) && s.dataSaida <= hojeISO()).length;
+  $("ini-saidas").textContent = D.socios.length - ativos.length;
 
   const contar = (campo, ordem)=>{
     const m = new Map(); for(const s of ativos){ const k = s[campo] || "—"; m.set(k, (m.get(k) || 0) + 1); }

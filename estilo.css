@@ -107,3 +107,4 @@ input:disabled,select:disabled,textarea:disabled{background:#F3F4F6;color:#37415
 .ficha-grid>*{min-width:0}
 select{max-width:100%;text-overflow:ellipsis}
 @media (max-width:760px){#hdr-user{display:none} header h1{font-size:17px}}
+tr.muda td{background:var(--amarelo)}

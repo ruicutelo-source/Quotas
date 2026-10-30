@@ -13,7 +13,7 @@ const FIREBASE_CONFIG = {
   messagingSenderId: "1042881769887",
   appId: "1:1042881769887:web:6b3796aa2b52ceae078daa"
 };
-const VERSAO_APP = "1.0 (fase 1)";
+const VERSAO_APP = "1.1 (fase 1)";
 
 /* Administrador principal: tem sempre acesso total, mesmo sem ficha em Utilizadores.
    Tem de ser igual ao email escrito nas regras do Firestore. */
@@ -27,10 +27,10 @@ const PERFIS = ["Administrador", "Tesoureiro", "Consulta"];
    config/clube:        {nome, nif, telefone, email, morada, codigoPostal, localidade, logo, joia, quotaMensal, quotaAnual}
    config/listas:       {tiposSocio:[...], formasPagamento:[...]}
    cargos/{id}:         {orgao, cargo, socioId, nome, mandato}
-   socios/{S00001}:     {numero, nome, dataNascimento, telemovel, telefone, email, morada, codigoPostal, localidade,
+   socios/{id}:         {numero (null = sem nº), historicoNumeros:[{numero, ate}], ativo, nome, dataNascimento, telemovel, telefone, email, morada, codigoPostal, localidade,
                          tipo, periodicidade, dataEntrada, dataSaida, observacoes, nifMasc, nibMasc,
                          agregado:[{id, relacao}], criadoPor, criadoEm, alteradoPor, alteradoEm}
-   sociosPrivado/{S00001}: {nif, nib}   (só Administrador e Tesoureiro conseguem ler)
+   sociosPrivado/{id}:  {nif, nib}   (só Administrador e Tesoureiro conseguem ler)
    utilizadores/{email}: {nome, perfil, ativo}
    --------------------------------------------------------------------- */
 const COLS = ["config", "cargos", "socios", "sociosPrivado", "utilizadores"];
@@ -49,8 +49,10 @@ const CLUBE_INICIAL = {nome: "", nif: "", telefone: "", email: "", morada: "", c
 const clube = ()=> ({...CLUBE_INICIAL, ...(D.config.find((c)=>c.id === "clube") || {})});
 const listas = ()=>{ const l = D.config.find((c)=>c.id === "listas") || {};
   return {tiposSocio: l.tiposSocio || LISTAS_INICIAIS.tiposSocio, formasPagamento: l.formasPagamento || LISTAS_INICIAIS.formasPagamento}; };
-const idSocio = (numero)=> "S" + String(numero).padStart(5, "0");
-const socioAtivo = (s)=> !s.dataSaida || s.dataSaida > hojeISO();
+/* código interno fixo do sócio (o nº de sócio pode mudar nas renumerações; o código nunca muda) */
+const novoIdSocio = ()=> "S" + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+const numTxt = (s)=> s && s.numero ? "nº " + s.numero : "sem nº";
+const socioAtivo = (s)=> s.ativo !== false;          // escolhido à mão na ficha (a data de saída é só informativa)
 
 let renderAgendado = false;
 function agendarRender(){ if(renderAgendado) return; renderAgendado = true; requestAnimationFrame(()=>{ renderAgendado = false; render(); }); }
@@ -77,12 +79,6 @@ const Local = {
     }
     reindexar(); this.gravar(); agendarRender();
     return Promise.resolve();
-  },
-  criarSocio(id, dados, privado){
-    if(D.socios.some((s)=>s.id === id)) return Promise.reject(new Error("EXISTE"));
-    const ops = [{tipo: "set", col: "socios", id, dados}];
-    if(privado) ops.push({tipo: "set", col: "sociosPrivado", id, dados: privado});
-    return this.aplicar(ops);
   },
   utilizador(){ return "modo-local"; }
 };
@@ -158,15 +154,6 @@ const Nuvem = {
       promessas.push(lote.commit().catch((e)=>{ aviso("Não foi possível gravar na base de dados: " + e.message); throw e; }));
     }
     return Promise.all(promessas);
-  },
-  /* o número de sócio não pode repetir-se: a criação é feita numa transação (precisa de internet) */
-  criarSocio(id, dados, privado){
-    const ref = this.db.collection("socios").doc(id), refP = this.db.collection("sociosPrivado").doc(id);
-    return this.db.runTransaction((t)=>t.get(ref).then((d)=>{
-      if(d.exists) throw new Error("EXISTE");
-      t.set(ref, dados);
-      if(privado) t.set(refP, privado);
-    }));
   },
   mudarPass(atual, nova){
     const u = this.auth.currentUser;
