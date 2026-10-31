@@ -241,7 +241,7 @@ function descarregarCopia(){
 $("clb-limpar").onclick = ()=>{
   if(MODO_FIREBASE && Store.utilizador() !== ADMIN_PRINCIPAL) return;
   const n = {socios: D.socios.length, pagamentos: D.pagamentos.length, cargos: D.cargos.length};
-  janela("Limpar dados", `<p>Vai apagar <b>${n.socios}</b> sócio(s), <b>${n.pagamentos}</b> pagamento(s) e <b>${n.cargos}</b> cargo(s), com os NIF e NIB.
+  janela("Limpar dados", `<p>Vai apagar <b>${n.socios}</b> sócio(s), <b>${n.pagamentos}</b> pagamento(s) e <b>${n.cargos}</b> cargo(s), com os NIF e NIB. A numeração dos recibos volta ao início.
       <b>Não se pode desfazer.</b></p>
     <p class="nota">Primeiro é descarregada uma cópia de tudo (ficheiro <b>Quotas_copia_….json</b> nas Transferências). Guarde-a.</p>
     <label class="campo">Para confirmar, escreva APAGAR</label><input type="text" id="limpar-conf" autocomplete="off">
@@ -251,6 +251,9 @@ $("clb-limpar").onclick = ()=>{
     const ficheiro = descarregarCopia();
     const ops = [];
     for(const c of ["pagamentos", "sociosPrivado", "socios", "cargos"]) for(const x of D[c]) ops.push({tipo: "del", col: c, id: x.id});
+    // a numeração dos recibos volta ao início (próximo recibo = AAAA/0001)
+    const anos = new Set(D.pagamentos.map((p)=>String(p.data).slice(0, 4)).concat(hojeISO().slice(0, 4)));
+    for(const ano of anos) ops.push({tipo: "del", col: "contadores", id: "recibos-" + ano});
     fecharJanela();
     gravar(ops).then(()=>aviso(`Dados apagados. A cópia ficou guardada em ${ficheiro}.`, "Limpar dados")).catch(()=>{});
     toast("A apagar…");

@@ -13,7 +13,7 @@ const FIREBASE_CONFIG = {
   messagingSenderId: "1042881769887",
   appId: "1:1042881769887:web:6b3796aa2b52ceae078daa"
 };
-const VERSAO_APP = "2.1 (fase 2)";
+const VERSAO_APP = "3.0 (fase 3)";
 
 /* Administrador principal: tem sempre acesso total, mesmo sem ficha em Utilizadores.
    Tem de ser igual ao email escrito nas regras do Firestore. */
@@ -35,9 +35,11 @@ const PERFIS = ["Administrador", "Tesoureiro", "Consulta"];
    sociosPrivado/{id}:  {nif, nib}   (só Administrador e Tesoureiro conseguem ler)
    utilizadores/{email}: {nome, perfil, ativo}
    pagamentos/{id}:     {socioId, numeroSocio, nomeSocio, data, forma, itens:[{tipo, periodo, rot, valor}],
-                         subtotal, desconto, total, obs, anulado:{por, em, motivo}|null, criadoPor, criadoEm}
+                         subtotal, desconto, total, obs, anulado:{por, em, motivo}|null, recebidoPorNome,
+                         recibo:{ano, num, txt:"2026/0001", em}|null, criadoPor, criadoEm}
+   contadores/recibos-2026: {ultimo}   (último nº de recibo do ano; só se mexe numa transação)
    --------------------------------------------------------------------- */
-const COLS = ["config", "cargos", "socios", "sociosPrivado", "utilizadores", "pagamentos"];
+const COLS = ["config", "cargos", "socios", "sociosPrivado", "utilizadores", "pagamentos", "contadores"];
 let D = {}; for(const c of COLS) D[c] = [];
 const Idx = {socio: new Map(), priv: new Map(), pagos: new Map(), pagSocio: new Map()};
 function reindexar(){
@@ -70,6 +72,7 @@ const novoIdSocio = ()=> "S" + Date.now().toString(36) + Math.random().toString(
 const numTxt = (s)=> s && s.numero ? "nº " + s.numero : "sem nº";
 const socioAtivo = (s)=> s.ativo !== false;          // escolhido à mão na ficha (a data de saída é só informativa)
 
+let nomeUtilizador = "";       // nome de quem está a usar a app (vai nos recibos: «Recebido por»)
 let renderAgendado = false;
 function agendarRender(){ if(renderAgendado) return; renderAgendado = true; requestAnimationFrame(()=>{ renderAgendado = false; render(); }); }
 
@@ -82,6 +85,7 @@ const Local = {
     const d = this.ler(); if(d) for(const c of COLS) D[c] = d[c] || [];
     reindexar();
     const p = new URLSearchParams(location.search).get("perfil");
+    nomeUtilizador = "Modo local";
     entrouUtilizador("modo-local", PERFIS.find((x)=>x.toLowerCase() === String(p).toLowerCase()) || "Administrador");
     if(!D.config.find((c)=>c.id === "listas")) this.aplicar([{tipo: "set", col: "config", id: "listas", dados: {...LISTAS_INICIAIS}}]);
     window.addEventListener("storage", (e)=>{ if(e.key === this.CHAVE){ const n = this.ler(); if(n){ for(const c of COLS) D[c] = n[c] || []; reindexar(); render(); } } });
@@ -95,6 +99,14 @@ const Local = {
     }
     reindexar(); this.gravar(); agendarRender();
     return Promise.resolve();
+  },
+  numerarRecibo(id){
+    const p = D.pagamentos.find((x)=>x.id === id);
+    if(!p || p.recibo) return Promise.resolve(null);
+    const ano = String(p.data).slice(0, 4), cid = "recibos-" + ano;
+    const n = ((D.contadores.find((c)=>c.id === cid) || {}).ultimo || 0) + 1;
+    return this.aplicar([{tipo: "set", col: "contadores", id: cid, dados: {ultimo: n}},
+      {tipo: "update", col: "pagamentos", id, dados: {recibo: {ano: Number(ano), num: n, txt: ano + "/" + String(n).padStart(4, "0"), em: Date.now()}}}]).then(()=>n);
   },
   utilizador(){ return "modo-local"; }
 };
@@ -118,11 +130,12 @@ const Nuvem = {
   /* o perfil vem da ficha em utilizadores/{email} (o Administrador principal tem sempre acesso) */
   vigiarPerfil(){
     const email = this.emailAtual;
-    if(email === ADMIN_PRINCIPAL){ this.comecar(email, "Administrador"); return; }
+    if(email === ADMIN_PRINCIPAL){ nomeUtilizador = "Administrador"; this.comecar(email, "Administrador"); return; }
     let anterior;          // undefined = ainda não se sabe (null = sem acesso)
     this.subPerfil = this.db.collection("utilizadores").doc(email).onSnapshot((d)=>{
       const u = d.exists ? d.data() : null;
       const p = u && u.ativo === true && PERFIS.includes(u.perfil) ? u.perfil : null;
+      nomeUtilizador = (u && u.nome) || email;
       if(p === anterior) return;
       anterior = p; this.pararDados();
       if(p) this.comecar(email, p);
@@ -145,6 +158,7 @@ const Nuvem = {
       this.subs.push(this.db.collection(c).onSnapshot((snap)=>{
         D[c] = snap.docs.map((d)=>({...d.data(), id: d.id}));
         reindexar(); agendarRender();
+        if(c === "pagamentos") setTimeout(()=>numerarPendentes(), 0);     // dá nº aos recibos que ainda não têm
       }, (err)=>aviso("Sem acesso aos dados (" + c + ": " + err.code + "). Confirme as regras do Firestore.")));
     }
   },
@@ -170,6 +184,20 @@ const Nuvem = {
       promessas.push(lote.commit().catch((e)=>{ aviso("Não foi possível gravar na base de dados: " + e.message); throw e; }));
     }
     return Promise.all(promessas);
+  },
+  /* nº de recibo sem saltos nem repetições, mesmo com vários aparelhos: transação no contador do ano (precisa de internet) */
+  numerarRecibo(id){
+    const ref = this.db.collection("pagamentos").doc(id);
+    return this.db.runTransaction((t)=>t.get(ref).then((d)=>{
+      if(!d.exists || d.data().recibo) return null;
+      const ano = String(d.data().data).slice(0, 4), cref = this.db.collection("contadores").doc("recibos-" + ano);
+      return t.get(cref).then((c)=>{
+        const n = ((c.exists && c.data().ultimo) || 0) + 1;
+        t.set(cref, {ultimo: n});
+        t.update(ref, {recibo: {ano: Number(ano), num: n, txt: ano + "/" + String(n).padStart(4, "0"), em: Date.now()}});
+        return n;
+      });
+    }));
   },
   mudarPass(atual, nova){
     const u = this.auth.currentUser;
@@ -260,6 +288,7 @@ function render(){
   $("hdr-user").textContent = perfil ? (Store.utilizador() || "") : "";
   $("hdr-perfil").textContent = perfil || "";
   if(perfil && ecraAtual && RENDER[ecraAtual]) RENDER[ecraAtual]();
+  if(perfil) atualizarJanelaPagamento();
 }
 
 /* ---------- login ---------- */

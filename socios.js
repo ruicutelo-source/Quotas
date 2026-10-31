@@ -17,8 +17,15 @@ RENDER.socios = function(){
   selT.innerHTML = `<option value="">Todos os tipos</option>` + tipos.map((t)=>`<option>${esc(t)}</option>`).join("");
   selT.value = tipos.includes(atual) ? atual : "";
 
-  const q = norm($("soc-pesq").value), tipo = selT.value, per = $("soc-period").value;
-  const lista = D.socios.filter((s)=>{
+  const lista = sociosFiltrados();
+  $("soc-n").textContent = lista.length + (lista.length === 1 ? " sócio" : " sócios");
+  $("soc-lista").innerHTML = tabelaSocios(lista);
+  $("soc-lista").querySelectorAll("tr.clic").forEach((tr)=>tr.onclick = ()=>abrirSocio(tr.dataset.id));
+};
+/* sócios com os filtros do ecrã (também usado no mapa para imprimir) */
+function sociosFiltrados(){
+  const q = norm($("soc-pesq").value), tipo = $("soc-tipo").value, per = $("soc-period").value;
+  return D.socios.filter((s)=>{
     const at = socioAtivo(s);
     if(filtroSoc.estado === "ativos" && !at) return false;
     if(filtroSoc.estado === "inativos" && at) return false;
@@ -31,16 +38,16 @@ RENDER.socios = function(){
     }
     return true;
   }).sort(porNumero);
-  $("soc-n").textContent = lista.length + (lista.length === 1 ? " sócio" : " sócios");
-  $("soc-lista").innerHTML = tabela(
+}
+function tabelaSocios(lista){
+  return tabela(
     [{t: "Nº", num: true}, {t: "Nome"}, {t: "Tipo", cl: "so-largo"}, {t: "Quota"}, {t: "Telemóvel", cl: "so-largo"}, {t: "Localidade", cl: "so-largo"}, {t: "Estado"}],
     lista.map((s)=>`<tr class="clic" data-id="${esc(s.id)}"><td class="num">${s.numero || "—"}</td><td>${esc(s.nome)}</td>
       <td class="so-largo">${esc(s.tipo)}</td><td>${esc(s.periodicidade)}</td><td class="so-largo">${esc(s.telemovel)}</td>
       <td class="so-largo">${esc(s.localidade)}</td>
       <td>${socioAtivo(s) ? `<span class="chip verde">Ativo</span>` : `<span class="chip verm">Inativo</span>`}</td></tr>`),
     D.socios.length ? "Nenhum sócio corresponde à pesquisa." : (eTes() ? "Ainda não há sócios. Carregue em «+ Novo sócio»." : "Ainda não há sócios."));
-  $("soc-lista").querySelectorAll("tr.clic").forEach((tr)=>tr.onclick = ()=>abrirSocio(tr.dataset.id));
-};
+}
 $("soc-pesq").addEventListener("input", ()=>RENDER.socios());
 $("soc-tipo").onchange = ()=>RENDER.socios();
 $("soc-period").onchange = ()=>RENDER.socios();
@@ -118,10 +125,12 @@ function abrirSocio(id){
     <div class="aviso" id="f-erros" style="display:none"></div>`;
   const acoes = [{texto: pode ? "Cancelar" : "Fechar", classe: "sec", id: "f-cancelar"}];
   if(s && eAdmin()) acoes.unshift({texto: "Apagar", classe: "sec verm-txt", id: "f-apagar", manter: true, acao: ()=>apagarSocio(s.id)});
+  if(s) acoes.push({texto: "Imprimir", classe: "sec", id: "f-imprimir", manter: true, acao: ()=>mapaFicha(s.id)});
   if(pode) acoes.push({texto: "Gravar", id: "f-gravar", manter: true, acao: gravarSocio});
   janela(novo ? "Novo sócio" : `Sócio ${numTxt(s)} · ${s.nome}`, corpo, acoes, true);
   desenharAgregado();
   if($("f-receber")) $("f-receber").onclick = ()=>{ fecharJanela(); abrirReceber(s.id); };
+  $("modal-corpo").querySelectorAll("tr[data-pag]").forEach((tr)=>tr.onclick = ()=>abrirPagamento(tr.dataset.pag));
   if(novo) $("f-nome").focus();      // logo, sem atraso (um atraso roubava o cursor a quem já estava a escrever)
 }
 

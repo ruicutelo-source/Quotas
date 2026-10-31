@@ -70,6 +70,7 @@ function situacao(s){
 const resumoFalta = (falta)=> falta.length > 4 ? falta.slice(0, 2).map((o)=>o.rot).join(", ") + ` … +${falta.length - 2}` : falta.map((o)=>o.rot).join(", ");
 
 /* ---------- ecrã Quotas ---------- */
+let pagAberto = null;      // pagamento aberto na janela (atualiza-se quando recebe o nº de recibo)
 let abaQuotas = "divida", anoQuadro = Number(hojeISO().slice(0, 4)), mesPag = "";
 $("quotas-abas").querySelectorAll("button").forEach((b)=>b.onclick = ()=>{ abaQuotas = b.dataset.aba; RENDER.quotas(); });
 RENDER.quotas = function(){
@@ -130,18 +131,19 @@ $("q-ano-seg").onclick = ()=>{ anoQuadro++; desenharQuadro(); };
 $("q-quadro-estado").onchange = ()=>desenharQuadro();
 
 function desenharPagamentos(){
-  const sel = $("q-pag-mes"), meses = [...new Set(D.pagamentos.map((p)=>mesISO(p.data)))].concat(mesAtual());
-  const lista = [...new Set(meses)].sort().reverse();
+  const sel = $("q-pag-mes"), meses = [...new Set(D.pagamentos.map((p)=>mesISO(p.data)).concat(mesAtual()))].sort().reverse();
+  const anos = [...new Set(meses.map((m)=>m.slice(0, 4)))];
   if(!mesPag) mesPag = mesAtual();
-  sel.innerHTML = lista.map((m)=>`<option value="${m}">${rotMes(m)}</option>`).join("") + `<option value="todos">Todos</option>`;
+  sel.innerHTML = `<optgroup label="Mês">${meses.map((m)=>`<option value="${m}">${rotMes(m)}</option>`).join("")}</optgroup>
+    <optgroup label="Ano">${anos.map((a)=>`<option value="${a}">Ano ${a}</option>`).join("")}</optgroup><option value="todos">Todos</option>`;
   sel.value = mesPag;
-  const pags = D.pagamentos.filter((p)=>mesPag === "todos" || mesISO(p.data) === mesPag)
+  const pags = pagamentosDoPeriodo(mesPag)
     .sort((a, b)=>String(b.data).localeCompare(String(a.data)) || (b.criadoEm || 0) - (a.criadoEm || 0));
   const tot = pags.filter((p)=>!p.anulado).reduce((t, p)=>t + p.total, 0);
   $("q-pag-tit").textContent = `${pags.length} ${pags.length === 1 ? "pagamento" : "pagamentos"} · ${eur(tot)}`;
-  $("q-pag-lista").innerHTML = tabela([{t: "Data"}, {t: "Sócio"}, {t: "Referente a", cl: "so-largo"}, {t: "Forma", cl: "so-largo"}, {t: "Total", num: true}],
+  $("q-pag-lista").innerHTML = tabela([{t: "Data"}, {t: "Recibo"}, {t: "Sócio"}, {t: "Referente a", cl: "so-largo"}, {t: "Forma", cl: "so-largo"}, {t: "Total", num: true}],
     pags.map((p)=>{ const s = Idx.socio.get(p.socioId);
-      return `<tr class="clic ${p.anulado ? "anulado" : ""}" data-id="${esc(p.id)}"><td>${dataPT(p.data)}</td>
+      return `<tr class="clic ${p.anulado ? "anulado" : ""}" data-id="${esc(p.id)}"><td>${dataPT(p.data)}</td><td>${p.recibo ? esc(p.recibo.txt) : `<span class="pequeno verm">a aguardar</span>`}</td>
         <td>${esc(s ? s.nome : p.nomeSocio)} <span class="pequeno">(${s ? numTxt(s) : "nº " + (p.numeroSocio || "—")})</span></td>
         <td class="so-largo itens">${esc((p.itens || []).map((i)=>i.rot).join(", "))}</td><td class="so-largo">${esc(p.forma)}</td>
         <td class="num">${p.anulado ? "Anulado" : eur(p.total)}</td></tr>`; }),
@@ -210,32 +212,44 @@ function gravarRecebimento(){
   const id = "P" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
   const dados = {socioId: s.id, numeroSocio: s.numero || null, nomeSocio: s.nome, data, forma: $("r-forma").value,
     itens: itens.map((o)=>({tipo: o.tipo, periodo: o.periodo, rot: o.rot, valor: o.valor})),
-    subtotal, desconto, total: subtotal - desconto, obs: $("r-obs").value.trim(), anulado: null, ...carimbo(true)};
+    subtotal, desconto, total: subtotal - desconto, obs: $("r-obs").value.trim(), anulado: null,
+    recebidoPorNome: nomeUtilizador, recibo: null, ...carimbo(true)};
   fecharJanela();
-  gravar([{tipo: "set", col: "pagamentos", id, dados}]);
+  // grava; quando chegar ao servidor recebe o nº de recibo (sem internet fica à espera)
+  gravar([{tipo: "set", col: "pagamentos", id, dados}]).then(()=>numerarPendentes()).catch(()=>{});
   toast(`Pagamento de ${eur(dados.total)} registado.`);
+  abrirPagamento(id, dados);
 }
 
 /* ---------- ver / anular pagamento ---------- */
-function abrirPagamento(id){
-  const p = D.pagamentos.find((x)=>x.id === id); if(!p) return;
+function abrirPagamento(id, provisorio){
+  // logo depois de gravar o pagamento pode ainda não estar na lista: usa os dados acabados de gravar
+  const p = D.pagamentos.find((x)=>x.id === id) || (provisorio ? {...provisorio, id} : null); if(!p) return;
   const s = Idx.socio.get(p.socioId);
-  const corpo = `<p><b>${esc(s ? s.nome : p.nomeSocio)}</b> (${s ? numTxt(s) : "nº " + (p.numeroSocio || "—")}) · ${dataPT(p.data)} · ${esc(p.forma)}</p>
+  pagAberto = {id, assin: JSON.stringify([p.recibo, p.anulado])};
+  const recTxt = p.recibo ? `<span class="chip">Recibo nº ${esc(p.recibo.txt)}</span>`
+    : `<span class="chip verm">Recibo a aguardar nº</span> <span class="pequeno">(recebe o nº quando houver internet)</span>`;
+  const corpo = `<p>${recTxt}</p>
+    <p><b>${esc(s ? s.nome : p.nomeSocio)}</b> (${s ? numTxt(s) : "nº " + (p.numeroSocio || "—")}) · ${dataPT(p.data)} · ${esc(p.forma)}</p>
     ${tabela([{t: "Referente a"}, {t: "Valor", num: true}], (p.itens || []).map((i)=>`<tr><td>${esc(i.rot)}</td><td class="num">${eur(i.valor)}</td></tr>`)
       .concat(p.desconto ? [`<tr><td>Desconto</td><td class="num">−${eur(p.desconto)}</td></tr>`] : [])
       .concat([`<tr class="total"><td>Total</td><td class="num">${eur(p.total)}</td></tr>`]), "")}
     ${p.obs ? `<p class="nota">Obs.: ${esc(p.obs)}</p>` : ""}
-    <p class="nota">Registado por ${esc(p.criadoPor || "—")} em ${dataHoraPT(p.criadoEm)}</p>
+    <p class="nota">Registado por ${esc(p.recebidoPorNome || p.criadoPor || "—")} em ${dataHoraPT(p.criadoEm)}</p>
     ${p.anulado ? `<div class="aviso">Anulado por ${esc(p.anulado.por)} em ${dataHoraPT(p.anulado.em)}. Motivo: ${esc(p.anulado.motivo)}</div>` : ""}
     ${!p.anulado && eTes() ? `<div id="anular-zona" style="display:none"><label class="campo">Motivo da anulação *</label><input type="text" id="anular-motivo">
       <div class="aviso" id="anular-erro" style="display:none"></div></div>` : ""}`;
-  const acoes = [{texto: "Fechar", classe: "sec", id: "pag-fechar"}];
+  const acoes = [{texto: "Fechar", classe: "sec", id: "pag-fechar", acao: ()=>{ pagAberto = null; }}];
+  if(p.recibo){
+    if(podePartilharFicheiros()) acoes.push({texto: "Partilhar recibo", classe: "sec", id: "pag-partilhar", manter: true, acao: ()=>reciboPDF(p.id, true)});
+    acoes.push({texto: "Recibo PDF", id: "pag-pdf", manter: true, acao: ()=>reciboPDF(p.id, false)});
+  }
   if(!p.anulado && eTes()) acoes.unshift({texto: "Anular pagamento", classe: "sec verm-txt", id: "pag-anular", manter: true, acao: ()=>{
     const z = $("anular-zona");
     if(z.style.display === "none"){ z.style.display = "block"; $("pag-anular").textContent = "Confirmar anulação"; $("anular-motivo").focus(); return; }
     const motivo = $("anular-motivo").value.trim();
     if(!motivo){ $("anular-erro").textContent = "Indique o motivo."; $("anular-erro").style.display = "block"; return; }
-    fecharJanela();
+    fecharJanela(); pagAberto = null;
     gravar([{tipo: "update", col: "pagamentos", id: p.id, dados: {anulado: {por: Store.utilizador(), em: Date.now(), motivo}}}]);
     toast("Pagamento anulado.");
   }});
@@ -252,6 +266,17 @@ function htmlQuotasSocio(s){
   return `<div class="linha quebra" style="justify-content:space-between">${estado}
       ${eTes() ? `<button class="bt sec peq" id="f-receber">Receber pagamento</button>` : ""}</div>
     ${pags.length ? `<div class="rolar" style="margin-top:6px">${tabela([{t: "Data"}, {t: "Referente a"}, {t: "Total", num: true}],
-      pags.map((p)=>`<tr class="${p.anulado ? "anulado" : ""}"><td>${dataPT(p.data)}</td><td class="itens">${esc((p.itens || []).map((i)=>i.rot).join(", "))}</td>
+      pags.map((p)=>`<tr class="clic ${p.anulado ? "anulado" : ""}" data-pag="${esc(p.id)}"><td>${dataPT(p.data)}${p.recibo ? `<div class="pequeno">${esc(p.recibo.txt)}</div>` : ""}</td><td class="itens">${esc((p.itens || []).map((i)=>i.rot).join(", "))}</td>
         <td class="num">${p.anulado ? "Anulado" : eur(p.total)}</td></tr>`), "")}</div>` : `<div class="nota">Ainda sem pagamentos registados.</div>`}`;
+}
+
+/* pagamentos de um período: "AAAA-MM", "AAAA" ou "todos" */
+function pagamentosDoPeriodo(per){
+  return D.pagamentos.filter((p)=>per === "todos" || (per.length === 4 ? String(p.data).startsWith(per + "-") : mesISO(p.data) === per));
+}
+/* se a janela do pagamento está aberta e o recibo mudou (recebeu nº ou foi anulado), volta a desenhá-la */
+function atualizarJanelaPagamento(){
+  if(!pagAberto || !$("modal").classList.contains("aberto") || !$("pag-fechar")) return;
+  const p = D.pagamentos.find((x)=>x.id === pagAberto.id);
+  if(p && JSON.stringify([p.recibo, p.anulado]) !== pagAberto.assin && !($("anular-zona") && $("anular-zona").style.display === "block")) abrirPagamento(p.id);
 }

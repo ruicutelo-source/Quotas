@@ -44,6 +44,7 @@
 <section class="ecra" id="ecra-socios">
   <div class="barra">
     <input type="search" id="soc-pesq" placeholder="Pesquisar nome, nº, telemóvel, email, localidade…">
+    <button class="bt sec" id="soc-imprimir">Imprimir</button>
     <button class="bt sec" id="soc-renumerar">Renumerar</button>
     <button class="bt" id="soc-novo">+ Novo sócio</button>
   </div>
@@ -73,7 +74,7 @@
   <div style="height:10px"></div>
 
   <div class="aba ativo" id="aba-q-divida">
-    <div class="barra"><input type="search" id="q-pesq" placeholder="Pesquisar nome ou nº…"></div>
+    <div class="barra"><input type="search" id="q-pesq" placeholder="Pesquisar nome ou nº…"><button class="bt sec" id="q-div-imprimir">Imprimir</button></div>
     <div class="bloco"><div class="tit verm"><span>QUOTAS EM ATRASO</span><span id="q-div-tit"></span></div><div class="rolar" id="q-div-lista"></div></div>
     <div class="nota">Conta só o que já venceu até ao mês atual. Toque num sócio para abrir a ficha.</div>
   </div>
@@ -82,15 +83,16 @@
     <div class="barra">
       <button class="bt sec peq" id="q-ano-ant">◀</button><b id="q-ano" style="font-size:18px;min-width:50px;text-align:center"></b><button class="bt sec peq" id="q-ano-seg">▶</button>
       <select id="q-quadro-estado" style="width:auto"><option value="ativos">Só ativos</option><option value="todos">Todos</option></select>
+      <button class="bt sec" id="q-quadro-imprimir">Imprimir</button>
     </div>
     <div class="bloco"><div class="rolar" id="q-quadro"></div></div>
     <div class="nota"><span class="ok-txt">✓</span> pago · <span class="verm">✗</span> em falta · · ainda não venceu · — não se aplica (isento, inativo, antes da inscrição ou pago antes da app)</div>
   </div>
 
   <div class="aba" id="aba-q-pagamentos">
-    <div class="barra"><select id="q-pag-mes" style="width:auto;min-width:180px"></select></div>
+    <div class="barra"><select id="q-pag-mes" style="width:auto;min-width:180px"></select><button class="bt sec" id="q-pag-imprimir">Imprimir</button></div>
     <div class="bloco"><div class="tit navy"><span>PAGAMENTOS</span><span id="q-pag-tit"></span></div><div class="rolar" id="q-pag-lista"></div></div>
-    <div class="nota">Um pagamento errado é anulado (com motivo), nunca apagado. Toque num pagamento para ver ou anular.</div>
+    <div class="nota">Toque num pagamento para ver o recibo (PDF), partilhá-lo ou anular. Um pagamento errado é anulado (com motivo), nunca apagado.</div>
   </div>
 </section>
 
@@ -145,7 +147,7 @@
     <div class="linha" style="justify-content:flex-end;margin-top:12px"><button class="bt" id="clb-gravar">Gravar</button></div>
     <div class="cartao" id="clb-perigo" style="margin-top:20px;border-color:var(--verm);display:none">
       <h3 style="margin-top:0;color:var(--verm)">Zona de perigo</h3>
-      <div class="nota">Põe o programa a zeros: apaga <b>todos os sócios, NIF/NIB, pagamentos e cargos</b>.
+      <div class="nota">Põe o programa a zeros: apaga <b>todos os sócios, NIF/NIB, pagamentos e cargos</b>, e a numeração dos recibos volta ao início.
         Ficam os dados do clube, os valores, as listas e os utilizadores. Antes de apagar, a app descarrega uma cópia de tudo.</div>
       <button class="bt verm" id="clb-limpar">Limpar dados</button>
     </div>
@@ -202,6 +204,8 @@
   <div class="acoes" id="modal-acoes"></div>
 </div></div>
 <div class="toast" id="toast"></div>
+<div id="impressao"></div>
+<style id="estilo-pagina"></style>
 
 <div id="ecra-login" class="ecra-cheio" style="display:none">
   <div class="cartao" style="max-width:420px;width:100%;padding:22px">
@@ -227,6 +231,8 @@
 <script src="inicio.js"></script>
 <script src="socios.js"></script>
 <script src="quotas.js"></script>
+<script src="recibos.js"></script>
+<script src="mapas.js"></script>
 <script src="clube.js"></script>
 <script src="sessao.js"></script>
 <script>arrancar();</script>
