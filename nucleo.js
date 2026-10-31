@@ -13,7 +13,7 @@ const FIREBASE_CONFIG = {
   messagingSenderId: "1042881769887",
   appId: "1:1042881769887:web:6b3796aa2b52ceae078daa"
 };
-const VERSAO_APP = "1.1 (fase 1)";
+const VERSAO_APP = "2.0 (fase 2)";
 
 /* Administrador principal: tem sempre acesso total, mesmo sem ficha em Utilizadores.
    Tem de ser igual ao email escrito nas regras do Firestore. */
@@ -24,31 +24,47 @@ const PERFIS = ["Administrador", "Tesoureiro", "Consulta"];
 
 /* ---------------------------------------------------------------------
    DADOS (coleções na base de dados) — valores em euros guardados em CÊNTIMOS
-   config/clube:        {nome, nif, telefone, email, morada, codigoPostal, localidade, logo, joia, quotaMensal, quotaAnual}
-   config/listas:       {tiposSocio:[...], formasPagamento:[...]}
+   config/clube:        {nome, nif, telefone, email, morada, codigoPostal, localidade, logo,
+                         valores:{"2026": {joia, mensal, anual}, ...}}   (joia/quotaMensal/quotaAnual: versão 1, só leitura)
+   config/listas:       {tiposSocio:[...], tiposIsentos:[...], formasPagamento:[...]}
    cargos/{id}:         {orgao, cargo, socioId, nome, mandato}
    socios/{id}:         {numero (null = sem nº), historicoNumeros:[{numero, ate}], ativo, nome, dataNascimento, telemovel, telefone, email, morada, codigoPostal, localidade,
-                         tipo, periodicidade, dataEntrada, dataSaida, observacoes, nifMasc, nibMasc,
+                         tipo, periodicidade, perHist:[{ano, per}], pagoAte ("AAAA-MM"), inatividade:[{de, ate}],
+                         dataEntrada, dataSaida, observacoes, nifMasc, nibMasc,
                          agregado:[{id, relacao}], criadoPor, criadoEm, alteradoPor, alteradoEm}
    sociosPrivado/{id}:  {nif, nib}   (só Administrador e Tesoureiro conseguem ler)
    utilizadores/{email}: {nome, perfil, ativo}
+   pagamentos/{id}:     {socioId, numeroSocio, nomeSocio, data, forma, itens:[{tipo, periodo, rot, valor}],
+                         subtotal, desconto, total, obs, anulado:{por, em, motivo}|null, criadoPor, criadoEm}
    --------------------------------------------------------------------- */
-const COLS = ["config", "cargos", "socios", "sociosPrivado", "utilizadores"];
+const COLS = ["config", "cargos", "socios", "sociosPrivado", "utilizadores", "pagamentos"];
 let D = {}; for(const c of COLS) D[c] = [];
-const Idx = {socio: new Map(), priv: new Map()};
+const Idx = {socio: new Map(), priv: new Map(), pagos: new Map(), pagSocio: new Map()};
 function reindexar(){
   Idx.socio = new Map(D.socios.map((s)=>[s.id, s]));
   Idx.priv = new Map(D.sociosPrivado.map((p)=>[p.id, p]));
+  // períodos pagos por sócio (pagamentos anulados não contam)
+  Idx.pagos = new Map(); Idx.pagSocio = new Map();
+  for(const p of D.pagamentos){
+    if(!Idx.pagSocio.has(p.socioId)) Idx.pagSocio.set(p.socioId, []);
+    Idx.pagSocio.get(p.socioId).push(p);
+    if(p.anulado) continue;
+    if(!Idx.pagos.has(p.socioId)) Idx.pagos.set(p.socioId, new Set());
+    for(const it of p.itens || []) Idx.pagos.get(p.socioId).add(it.periodo);
+  }
+  for(const l of Idx.pagSocio.values()) l.sort((a, b)=>String(b.data).localeCompare(String(a.data)) || (b.criadoEm || 0) - (a.criadoEm || 0));
 }
 const LISTAS_INICIAIS = {
   tiposSocio: ["Efetivo", "Fundador", "Honorário", "Sócio de Formação", "Atleta", "Outro"],
+  tiposIsentos: ["Honorário"],
   formasPagamento: ["Dinheiro", "Multibanco", "MB WAY", "Transferência Bancária", "Cheque"]
 };
 const CLUBE_INICIAL = {nome: "", nif: "", telefone: "", email: "", morada: "", codigoPostal: "", localidade: "",
                        logo: "", joia: 0, quotaMensal: 0, quotaAnual: 0};
 const clube = ()=> ({...CLUBE_INICIAL, ...(D.config.find((c)=>c.id === "clube") || {})});
 const listas = ()=>{ const l = D.config.find((c)=>c.id === "listas") || {};
-  return {tiposSocio: l.tiposSocio || LISTAS_INICIAIS.tiposSocio, formasPagamento: l.formasPagamento || LISTAS_INICIAIS.formasPagamento}; };
+  return {tiposSocio: l.tiposSocio || LISTAS_INICIAIS.tiposSocio, tiposIsentos: l.tiposIsentos || LISTAS_INICIAIS.tiposIsentos,
+          formasPagamento: l.formasPagamento || LISTAS_INICIAIS.formasPagamento}; };
 /* código interno fixo do sócio (o nº de sócio pode mudar nas renumerações; o código nunca muda) */
 const novoIdSocio = ()=> "S" + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 const numTxt = (s)=> s && s.numero ? "nº " + s.numero : "sem nº";
@@ -121,7 +137,7 @@ const Nuvem = {
   },
   subscrever(p){
     this.pararDados();
-    const cols = ["config", "cargos", "socios"];
+    const cols = ["config", "cargos", "socios", "pagamentos"];
     if(p !== "Consulta") cols.push("sociosPrivado");
     if(p === "Administrador") cols.push("utilizadores");
     for(const c of COLS) if(!cols.includes(c)) D[c] = [];
@@ -208,7 +224,7 @@ let perfil = null;            // "Administrador" | "Tesoureiro" | "Consulta"
 const eAdmin = ()=> perfil === "Administrador";
 const eTes = ()=> perfil === "Administrador" || perfil === "Tesoureiro";
 let ecraAtual = null;
-const ECRAS = [["inicio", "📊", "Início"], ["socios", "👥", "Sócios"], ["clube", "🏛️", "Clube"], ["sessao", "👤", "Sessão"]];
+const ECRAS = [["inicio", "📊", "Início"], ["socios", "👥", "Sócios"], ["quotas", "💶", "Quotas"], ["clube", "🏛️", "Clube"], ["sessao", "👤", "Sessão"]];
 const RENDER = {};           // cada ecrã regista aqui a sua função de desenho
 
 function entrouUtilizador(email, p){

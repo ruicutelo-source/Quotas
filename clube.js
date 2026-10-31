@@ -16,7 +16,7 @@ RENDER.clube = function(){
 /* ---------- dados e valores ---------- */
 const CAMPOS_CLUBE = [["clb-nome", "nome"], ["clb-nif", "nif"], ["clb-tel", "telefone"], ["clb-email", "email"],
                       ["clb-morada", "morada"], ["clb-cp", "codigoPostal"], ["clb-local", "localidade"]];
-let logoEdit = null, versaoDadosDesenhada = null;
+let logoEdit = null, versaoDadosDesenhada = null, valoresEdit = {};
 function desenharDados(){
   const c = clube(), pode = eAdmin();
   $("clb-so-ler").style.display = pode ? "none" : "block";
@@ -26,11 +26,38 @@ function desenharDados(){
   if(assin === versaoDadosDesenhada) return;
   versaoDadosDesenhada = assin;
   for(const [el, k] of CAMPOS_CLUBE){ $(el).value = c[k] || ""; $(el).disabled = !pode; }
-  $("clb-joia").value = eurCampo(c.joia); $("clb-qmensal").value = eurCampo(c.quotaMensal); $("clb-qanual").value = eurCampo(c.quotaAnual);
-  ["clb-joia", "clb-qmensal", "clb-qanual"].forEach((id)=>$(id).disabled = !pode);
+  // valores por ano (a versão 1 tinha só um valor: passa a ser o do ano atual)
+  valoresEdit = c.valores ? JSON.parse(JSON.stringify(c.valores))
+    : {[hojeISO().slice(0, 4)]: {joia: c.joia || 0, mensal: c.quotaMensal || 0, anual: c.quotaAnual || 0}};
+  desenharValores();
   logoEdit = c.logo || "";
   mostrarLogo();
 }
+function desenharValores(){
+  const pode = eAdmin(), anos = Object.keys(valoresEdit).sort();
+  $("clb-ano-add").style.display = pode ? "" : "none";
+  const inp = (ano, k)=>`<input type="text" inputmode="decimal" id="val-${ano}-${k}" value="${eurCampo(valoresEdit[ano][k])}" ${pode ? "" : "disabled"} style="min-width:80px">`;
+  $("clb-valores").innerHTML = `<table><thead><tr><th>Ano</th><th>Joia (€)</th><th>Mensal (€)</th><th>Anual (€)</th></tr></thead><tbody>
+    ${anos.map((a)=>`<tr><td><b>${a}</b></td><td>${inp(a, "joia")}</td><td>${inp(a, "mensal")}</td><td>${inp(a, "anual")}</td></tr>`).join("")}</tbody></table>`;
+}
+/* lê a tabela de valores (devolve null e marca os campos se algum valor for inválido) */
+function lerValores(){
+  let ok = true; const v = {};
+  for(const ano of Object.keys(valoresEdit)){
+    v[ano] = {};
+    for(const k of ["joia", "mensal", "anual"]){
+      const el = $(`val-${ano}-${k}`), c = centimosDe(el.value);
+      if(c === null){ el.classList.add("erro-campo"); ok = false; } else { el.classList.remove("erro-campo"); v[ano][k] = c; }
+    }
+  }
+  return ok ? v : null;
+}
+$("clb-ano-add").onclick = ()=>{
+  const atual = lerValores() || valoresEdit, anos = Object.keys(atual).sort();
+  const ultimo = anos[anos.length - 1], novo = String(Number(ultimo || hojeISO().slice(0, 4)) + 1);
+  valoresEdit = {...atual, [novo]: {...(atual[ultimo] || {joia: 0, mensal: 0, anual: 0})}};
+  desenharValores(); toast(`Ano ${novo} acrescentado. Ajuste os valores e carregue em Gravar.`);
+};
 function mostrarLogo(){
   $("clb-logo-caixa").innerHTML = logoEdit ? `<img src="${esc(logoEdit)}" alt="Logótipo">` : `<span class="nota">Sem logótipo</span>`;
 }
@@ -64,10 +91,9 @@ $("clb-gravar").onclick = ()=>{
   if(!emailValido(d.email)){ erros.push("Email inválido."); $("clb-email").classList.add("erro-campo"); }
   const cp = cpNormalizar(d.codigoPostal);
   if(cp === null){ erros.push("Código postal inválido (0000-000)."); $("clb-cp").classList.add("erro-campo"); } else d.codigoPostal = cp;
-  for(const [el, k, nome] of [["clb-joia", "joia", "Joia"], ["clb-qmensal", "quotaMensal", "Quota mensal"], ["clb-qanual", "quotaAnual", "Quota anual"]]){
-    const c = centimosDe($(el).value);
-    if(c === null){ erros.push(nome + ": valor inválido (ex.: 12,50)."); $(el).classList.add("erro-campo"); } else d[k] = c;
-  }
+  const valores = lerValores();
+  if(!valores) erros.push("Há valores inválidos na tabela (ex.: 12,50).");
+  else d.valores = valores;
   if(erros.length){ aviso(erros.join("\n"), "Corrigir"); return; }
   d.logo = logoEdit || "";
   versaoDadosDesenhada = null;
@@ -123,14 +149,20 @@ function desenharListas(){
   const desenhar = (chave, el, usos)=>{
     $(el).innerHTML = `<div class="lista-itens">${l[chave].map((t, i)=>`<div class="item"><span>${esc(t)}</span>
       ${usos && usos.get(t) ? `<span class="pequeno">${usos.get(t)} sócio(s)</span>` : ""}
+      ${chave === "tiposSocio" ? `<label class="pequeno" style="display:flex;gap:4px;align-items:center"><input type="checkbox" data-isento="${esc(t)}" ${l.tiposIsentos.includes(t) ? "checked" : ""} ${pode ? "" : "disabled"}> isento</label>` : ""}
       ${pode ? `<button class="link" data-i="${i}" data-acao="ren">Mudar nome</button><button class="lixo" data-i="${i}" data-acao="del" title="Apagar">✕</button>` : ""}</div>`).join("")}</div>`;
+    $(el).querySelectorAll("input[data-isento]").forEach((c)=>c.onchange = ()=>{
+      const t = c.dataset.isento, isentos = l.tiposIsentos.filter((x)=>x !== t);
+      if(c.checked) isentos.push(t);
+      gravarListas({...l, tiposIsentos: isentos});
+    });
     $(el).querySelectorAll("button").forEach((b)=>b.onclick = ()=>{
       const i = Number(b.dataset.i), nome = l[chave][i];
       if(b.dataset.acao === "del"){
         if(usos && usos.get(nome)){ aviso(`O tipo «${nome}» está em uso em ${usos.get(nome)} ficha(s). Mude primeiro essas fichas.`); return; }
         if(l[chave].length <= 1){ aviso("A lista tem de ter pelo menos um valor."); return; }
         const nova = l[chave].filter((_, j)=>j !== i);
-        gravarListas({...l, [chave]: nova});
+        gravarListas({...l, [chave]: nova, tiposIsentos: l.tiposIsentos.filter((x)=>x !== nome)});
       }else{
         janela("Mudar nome", `<input type="text" id="ls-ren" value="${esc(nome)}">`, [{texto: "Cancelar", classe: "sec"},
           {texto: "Gravar", id: "ls-ren-ok", acao: ()=>{
@@ -139,7 +171,7 @@ function desenharListas(){
             const nova = l[chave].map((x)=>x === nome ? novo : x);
             const extra = chave === "tiposSocio" ? D.socios.filter((s)=>s.tipo === nome)
               .map((s)=>({tipo: "update", col: "socios", id: s.id, dados: {tipo: novo, ...carimbo(false)}})) : [];
-            gravarListas({...l, [chave]: nova}, extra);
+            gravarListas({...l, [chave]: nova, tiposIsentos: l.tiposIsentos.map((x)=>x === nome ? novo : x)}, extra);
           }}]);
       }
     });
@@ -150,7 +182,7 @@ function desenharListas(){
   $("ls-formas-add").style.display = pode ? "flex" : "none";
 }
 function gravarListas(l, extra){
-  gravar([{tipo: "set", col: "config", id: "listas", dados: {tiposSocio: l.tiposSocio, formasPagamento: l.formasPagamento}}, ...(extra || [])]);
+  gravar([{tipo: "set", col: "config", id: "listas", dados: {tiposSocio: l.tiposSocio, tiposIsentos: l.tiposIsentos, formasPagamento: l.formasPagamento}}, ...(extra || [])]);
   toast("Lista gravada.");
 }
 for(const [chave, inp, bt] of [["tiposSocio", "ls-tipos-novo", "ls-tipos-bt"], ["formasPagamento", "ls-formas-novo", "ls-formas-bt"]]){

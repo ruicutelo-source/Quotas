@@ -26,12 +26,18 @@
     <div class="cartao kpi"><div class="rot" id="ini-rot-saidas">Saídas este ano</div><div class="val verm" id="ini-saidas"></div></div>
     <div class="cartao kpi"><div class="rot">Total registados</div><div class="val azul" id="ini-total"></div></div>
   </div>
+  <h2>Quotas</h2>
+  <div class="grelha g4">
+    <div class="cartao kpi"><div class="rot">Recebido este mês</div><div class="val verde" id="ini-rec-mes"></div></div>
+    <div class="cartao kpi"><div class="rot" id="ini-rot-rec-ano">Recebido este ano</div><div class="val verde" id="ini-rec-ano"></div></div>
+    <div class="cartao kpi clic" id="ini-div-cartao"><div class="rot">Em dívida</div><div class="val verm" id="ini-divida"></div></div>
+    <div class="cartao kpi clic" id="ini-ndiv-cartao"><div class="rot">Sócios com quotas em atraso</div><div class="val verm" id="ini-ndiv"></div></div>
+  </div>
   <div class="grelha g3" style="margin-top:12px">
     <div class="bloco"><div class="tit navy"><span>ATIVOS POR TIPO</span></div><div id="ini-tipos"></div></div>
     <div class="bloco"><div class="tit navy"><span>ATIVOS POR PERIODICIDADE</span></div><div id="ini-period"></div></div>
     <div class="bloco"><div class="tit verde"><span>ANIVERSÁRIOS ESTE MÊS</span></div><div id="ini-aniv"></div></div>
   </div>
-  <div class="nota" style="margin-top:12px">As quotas, pagamentos e dívidas entram na Fase 2.</div>
 </section>
 
 <!-- ======================= SÓCIOS ======================= -->
@@ -52,6 +58,40 @@
   </div>
   <div class="bloco"><div class="tit navy"><span>SÓCIOS</span><span id="soc-n"></span></div>
     <div class="rolar" id="soc-lista"></div></div>
+</section>
+
+<!-- ======================= QUOTAS ======================= -->
+<section class="ecra" id="ecra-quotas">
+  <div class="linha quebra" style="justify-content:space-between">
+    <div class="abas cresce" id="quotas-abas" style="margin-bottom:0">
+      <button data-aba="divida" class="ativo">Em dívida</button>
+      <button data-aba="quadro">Quadro do ano</button>
+      <button data-aba="pagamentos">Pagamentos</button>
+    </div>
+    <button class="bt verde" id="q-receber">+ Receber pagamento</button>
+  </div>
+  <div style="height:10px"></div>
+
+  <div class="aba ativo" id="aba-q-divida">
+    <div class="barra"><input type="search" id="q-pesq" placeholder="Pesquisar nome ou nº…"></div>
+    <div class="bloco"><div class="tit verm"><span>QUOTAS EM ATRASO</span><span id="q-div-tit"></span></div><div class="rolar" id="q-div-lista"></div></div>
+    <div class="nota">Conta só o que já venceu até ao mês atual. Toque num sócio para abrir a ficha.</div>
+  </div>
+
+  <div class="aba" id="aba-q-quadro">
+    <div class="barra">
+      <button class="bt sec peq" id="q-ano-ant">◀</button><b id="q-ano" style="font-size:18px;min-width:50px;text-align:center"></b><button class="bt sec peq" id="q-ano-seg">▶</button>
+      <select id="q-quadro-estado" style="width:auto"><option value="ativos">Só ativos</option><option value="todos">Todos</option></select>
+    </div>
+    <div class="bloco"><div class="rolar" id="q-quadro"></div></div>
+    <div class="nota"><span class="ok-txt">✓</span> pago · <span class="verm">✗</span> em falta · · ainda não venceu · — não se aplica (isento, inativo, antes da inscrição ou pago antes da app)</div>
+  </div>
+
+  <div class="aba" id="aba-q-pagamentos">
+    <div class="barra"><select id="q-pag-mes" style="width:auto;min-width:180px"></select></div>
+    <div class="bloco"><div class="tit navy"><span>PAGAMENTOS</span><span id="q-pag-tit"></span></div><div class="rolar" id="q-pag-lista"></div></div>
+    <div class="nota">Um pagamento errado é anulado (com motivo), nunca apagado. Toque num pagamento para ver ou anular.</div>
+  </div>
 </section>
 
 <!-- ======================= CLUBE ======================= -->
@@ -82,13 +122,11 @@
       </div>
       <div>
         <div class="cartao">
-          <h3 style="margin-top:0">Valores</h3>
-          <div class="grelha g3" style="gap:10px">
-            <div><label class="campo">Joia (€)</label><input type="text" id="clb-joia" inputmode="decimal"></div>
-            <div><label class="campo">Quota mensal (€)</label><input type="text" id="clb-qmensal" inputmode="decimal"></div>
-            <div><label class="campo">Quota anual (€)</label><input type="text" id="clb-qanual" inputmode="decimal"></div>
-          </div>
-          <div class="nota">A joia é cobrada uma vez, na inscrição. A quota anual pode ter desconto em relação a 12 mensalidades.</div>
+          <h3 style="margin-top:0">Valores por ano</h3>
+          <div class="rolar" id="clb-valores"></div>
+          <button class="bt sec peq" id="clb-ano-add" style="margin-top:8px">+ Acrescentar ano</button>
+          <div class="nota">A joia é cobrada uma vez, na inscrição. A quota anual pode ter desconto em relação a 12 mensalidades.
+            Um sócio anual que se inscreve a meio do ano paga os meses que faltam × quota mensal. Mudar os valores de um ano não mexe nos anos anteriores.</div>
         </div>
         <div class="cartao" style="margin-top:12px">
           <h3 style="margin-top:0">Logótipo</h3>
@@ -120,7 +158,8 @@
       <div class="bloco"><div class="tit navy"><span>FORMAS DE PAGAMENTO</span></div><div id="ls-formas"></div>
         <div class="linha" style="padding:10px" id="ls-formas-add"><input type="text" id="ls-formas-novo" placeholder="Nova forma de pagamento"><button class="bt peq" id="ls-formas-bt">Adicionar</button></div></div>
     </div>
-    <div class="nota">Mudar o nome de um tipo de sócio muda-o também em todas as fichas. Um tipo em uso não pode ser apagado.</div>
+    <div class="nota">Mudar o nome de um tipo de sócio muda-o também em todas as fichas. Um tipo em uso não pode ser apagado.
+      Os tipos marcados como <b>isento</b> não pagam quotas nem joia.</div>
   </div>
 
   <div class="aba" id="aba-utilizadores">
@@ -181,6 +220,7 @@
 <script src="nucleo.js"></script>
 <script src="inicio.js"></script>
 <script src="socios.js"></script>
+<script src="quotas.js"></script>
 <script src="clube.js"></script>
 <script src="sessao.js"></script>
 <script>arrancar();</script>

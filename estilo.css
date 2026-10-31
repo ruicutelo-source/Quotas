@@ -108,3 +108,20 @@ input:disabled,select:disabled,textarea:disabled{background:#F3F4F6;color:#37415
 select{max-width:100%;text-overflow:ellipsis}
 @media (max-width:760px){#hdr-user{display:none} header h1{font-size:17px}}
 tr.muda td{background:var(--amarelo)}
+/* ---- Fase 2: quotas ---- */
+.kpi.clic{cursor:pointer}.kpi.clic:hover{background:var(--azul-cl)}
+table.quadro th,table.quadro td{padding:6px 5px;font-size:13px}
+table.quadro td.nome{white-space:nowrap;max-width:200px;overflow:hidden;text-overflow:ellipsis}
+td.c,th.c{text-align:center}
+td.ok{color:var(--verde);font-weight:700;background:var(--verde-cl)}
+td.falta{color:var(--verm);font-weight:700;background:var(--verm-cl)}
+td.fut{color:var(--cinz)}td.na{color:#C0C4CC}
+.ok-txt{color:var(--verde);font-weight:700}
+tr.anulado td{color:#9CA3AF;text-decoration:line-through}
+.itens{font-size:13px;color:#555}
+.pvp{background:var(--navy);color:#fff;border-radius:10px;padding:12px 14px;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+.pvp .val{font-size:26px;font-weight:700}
+button.bt.verde{background:var(--verde)}
+input[type=month]{font-size:17px;padding:11px 12px;border:1px solid var(--linha);border-radius:8px;width:100%;background:#fff;font-family:inherit}
+#nav button{font-size:12px}
+@media (max-width:760px){#quotas-abas{flex-basis:100%;order:2}#q-receber{width:100%}}
