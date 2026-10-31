@@ -10,7 +10,7 @@ RENDER.clube = function(){
   if(abaClube === "utilizadores" && !eAdmin()) abaClube = "dados";
   $("clube-abas").querySelectorAll("button").forEach((b)=>b.classList.toggle("ativo", b.dataset.aba === abaClube));
   document.querySelectorAll("#ecra-clube .aba").forEach((a)=>a.classList.toggle("ativo", a.id === "aba-" + abaClube));
-  ({dados: desenharDados, cargos: desenharCargos, listas: desenharListas, utilizadores: desenharUtilizadores})[abaClube]();
+  ({dados: desenharDados, cargos: desenharCargos, listas: desenharListas, utilizadores: desenharUtilizadores, copias: desenharCopias})[abaClube]();
 };
 
 /* ---------- dados e valores ---------- */
@@ -144,53 +144,71 @@ function abrirCargo(id){
 }
 
 /* ---------- listas ---------- */
+const LISTAS_DEF = [
+  {chave: "tiposSocio", el: "ls-tipos", marca: {campo: "tiposIsentos", rot: "isento"}, uso: "socios"},
+  {chave: "formasPagamento", el: "ls-formas", marca: {campo: "formasCaixa", rot: "caixa"}},
+  {chave: "categoriasReceita", el: "ls-catrec", uso: "Receita"},
+  {chave: "categoriasDespesa", el: "ls-catdes", uso: "Despesa"}
+];
+/* quantas fichas/movimentos usam cada valor (não se pode apagar um valor em uso) */
+function usosLista(def){
+  const m = new Map(), soma = (k)=>m.set(k, (m.get(k) || 0) + 1);
+  if(def.uso === "socios") D.socios.forEach((s)=>soma(s.tipo));
+  else if(def.uso) D.movimentos.filter((x)=>x.tipo === def.uso).forEach((x)=>soma(x.categoria));
+  return m;
+}
+/* ao mudar o nome de um valor, muda também nas fichas/movimentos que o usam */
+function opsRenomear(def, nome, novo){
+  if(def.uso === "socios") return D.socios.filter((s)=>s.tipo === nome).map((s)=>({tipo: "update", col: "socios", id: s.id, dados: {tipo: novo, ...carimbo(false)}}));
+  if(def.uso) return D.movimentos.filter((x)=>x.tipo === def.uso && x.categoria === nome).map((x)=>({tipo: "update", col: "movimentos", id: x.id, dados: {categoria: novo}}));
+  return [];
+}
 function desenharListas(){
   const l = listas(), pode = eAdmin();
-  const emUso = new Map(); for(const s of D.socios) emUso.set(s.tipo, (emUso.get(s.tipo) || 0) + 1);
-  const desenhar = (chave, el, usos)=>{
+  for(const def of LISTAS_DEF){
+    const usos = usosLista(def), chave = def.chave, el = def.el, mc = def.marca;
     $(el).innerHTML = `<div class="lista-itens">${l[chave].map((t, i)=>`<div class="item"><span>${esc(t)}</span>
-      ${usos && usos.get(t) ? `<span class="pequeno">${usos.get(t)} sócio(s)</span>` : ""}
-      ${chave === "tiposSocio" ? `<label class="pequeno" style="display:flex;gap:4px;align-items:center"><input type="checkbox" data-isento="${esc(t)}" ${l.tiposIsentos.includes(t) ? "checked" : ""} ${pode ? "" : "disabled"}> isento</label>` : ""}
+      ${usos.get(t) ? `<span class="pequeno">${usos.get(t)} ${def.uso === "socios" ? "sócio(s)" : "mov."}</span>` : ""}
+      ${mc ? `<label class="pequeno" style="display:flex;gap:4px;align-items:center"><input type="checkbox" data-marca="${esc(t)}" ${l[mc.campo].includes(t) ? "checked" : ""} ${pode ? "" : "disabled"}> ${mc.rot}</label>` : ""}
       ${pode ? `<button class="link" data-i="${i}" data-acao="ren">Mudar nome</button><button class="lixo" data-i="${i}" data-acao="del" title="Apagar">✕</button>` : ""}</div>`).join("")}</div>`;
-    $(el).querySelectorAll("input[data-isento]").forEach((c)=>c.onchange = ()=>{
-      const t = c.dataset.isento, isentos = l.tiposIsentos.filter((x)=>x !== t);
-      if(c.checked) isentos.push(t);
-      gravarListas({...l, tiposIsentos: isentos});
+    $(el).querySelectorAll("input[data-marca]").forEach((c)=>c.onchange = ()=>{
+      const t = c.dataset.marca, lista = l[mc.campo].filter((x)=>x !== t);
+      if(c.checked) lista.push(t);
+      gravarListas({...l, [mc.campo]: lista});
     });
     $(el).querySelectorAll("button").forEach((b)=>b.onclick = ()=>{
       const i = Number(b.dataset.i), nome = l[chave][i];
       if(b.dataset.acao === "del"){
-        if(usos && usos.get(nome)){ aviso(`O tipo «${nome}» está em uso em ${usos.get(nome)} ficha(s). Mude primeiro essas fichas.`); return; }
+        if(usos.get(nome)){ aviso(`«${nome}» está em uso em ${usos.get(nome)} ${def.uso === "socios" ? "ficha(s)" : "movimento(s)"}. Mude-os primeiro.`); return; }
         if(l[chave].length <= 1){ aviso("A lista tem de ter pelo menos um valor."); return; }
-        const nova = l[chave].filter((_, j)=>j !== i);
-        gravarListas({...l, [chave]: nova, tiposIsentos: l.tiposIsentos.filter((x)=>x !== nome)});
+        const nl = {...l, [chave]: l[chave].filter((_, j)=>j !== i)};
+        if(mc) nl[mc.campo] = l[mc.campo].filter((x)=>x !== nome);
+        gravarListas(nl);
       }else{
         janela("Mudar nome", `<input type="text" id="ls-ren" value="${esc(nome)}">`, [{texto: "Cancelar", classe: "sec"},
           {texto: "Gravar", id: "ls-ren-ok", acao: ()=>{
             const novo = $("ls-ren").value.trim(); if(!novo || novo === nome) return;
             if(l[chave].includes(novo)){ aviso("Esse nome já existe na lista."); return; }
-            const nova = l[chave].map((x)=>x === nome ? novo : x);
-            const extra = chave === "tiposSocio" ? D.socios.filter((s)=>s.tipo === nome)
-              .map((s)=>({tipo: "update", col: "socios", id: s.id, dados: {tipo: novo, ...carimbo(false)}})) : [];
-            gravarListas({...l, [chave]: nova, tiposIsentos: l.tiposIsentos.map((x)=>x === nome ? novo : x)}, extra);
+            const nl = {...l, [chave]: l[chave].map((x)=>x === nome ? novo : x)};
+            if(mc) nl[mc.campo] = l[mc.campo].map((x)=>x === nome ? novo : x);
+            gravarListas(nl, opsRenomear(def, nome, novo));
           }}]);
       }
     });
-  };
-  desenhar("tiposSocio", "ls-tipos", emUso);
-  desenhar("formasPagamento", "ls-formas", null);
-  $("ls-tipos-add").style.display = pode ? "flex" : "none";
-  $("ls-formas-add").style.display = pode ? "flex" : "none";
+    $(el + "-add").style.display = pode ? "flex" : "none";
+  }
 }
 function gravarListas(l, extra){
-  gravar([{tipo: "set", col: "config", id: "listas", dados: {tiposSocio: l.tiposSocio, tiposIsentos: l.tiposIsentos, formasPagamento: l.formasPagamento}}, ...(extra || [])]);
+  const dados = {}; for(const k of Object.keys(LISTAS_INICIAIS)) dados[k] = l[k];
+  gravar([{tipo: "set", col: "config", id: "listas", dados}, ...(extra || [])]);
   toast("Lista gravada.");
 }
-for(const [chave, inp, bt] of [["tiposSocio", "ls-tipos-novo", "ls-tipos-bt"], ["formasPagamento", "ls-formas-novo", "ls-formas-bt"]]){
+for(const def of LISTAS_DEF){
+  const inp = def.el + "-novo", bt = def.el + "-bt";
   $(bt).onclick = ()=>{
     const v = $(inp).value.trim(), l = listas(); if(!v) return;
-    if(l[chave].some((x)=>norm(x) === norm(v))){ aviso("Esse valor já existe na lista."); return; }
-    $(inp).value = ""; gravarListas({...l, [chave]: [...l[chave], v]});
+    if(l[def.chave].some((x)=>norm(x) === norm(v))){ aviso("Esse valor já existe na lista."); return; }
+    $(inp).value = ""; gravarListas({...l, [def.chave]: [...l[def.chave], v]});
   };
   $(inp).addEventListener("keydown", (e)=>{ if(e.key === "Enter") $(bt).click(); });
 }
@@ -240,8 +258,8 @@ function descarregarCopia(){
 }
 $("clb-limpar").onclick = ()=>{
   if(MODO_FIREBASE && Store.utilizador() !== ADMIN_PRINCIPAL) return;
-  const n = {socios: D.socios.length, pagamentos: D.pagamentos.length, cargos: D.cargos.length};
-  janela("Limpar dados", `<p>Vai apagar <b>${n.socios}</b> sócio(s), <b>${n.pagamentos}</b> pagamento(s) e <b>${n.cargos}</b> cargo(s), com os NIF e NIB. A numeração dos recibos volta ao início.
+  const n = {socios: D.socios.length, pagamentos: D.pagamentos.length, cargos: D.cargos.length, movimentos: D.movimentos.length, entidades: D.entidades.length};
+  janela("Limpar dados", `<p>Vai apagar <b>${n.socios}</b> sócio(s), <b>${n.pagamentos}</b> pagamento(s), <b>${n.cargos}</b> cargo(s), <b>${n.movimentos}</b> movimento(s) de tesouraria e <b>${n.entidades}</b> fornecedor(es), com os NIF e NIB. A numeração dos recibos volta ao início.
       <b>Não se pode desfazer.</b></p>
     <p class="nota">Primeiro é descarregada uma cópia de tudo (ficheiro <b>Quotas_copia_….json</b> nas Transferências). Guarde-a.</p>
     <label class="campo">Para confirmar, escreva APAGAR</label><input type="text" id="limpar-conf" autocomplete="off">
@@ -250,7 +268,7 @@ $("clb-limpar").onclick = ()=>{
     if($("limpar-conf").value.trim() !== "APAGAR"){ $("limpar-erro").textContent = "Escreva APAGAR (em maiúsculas) para confirmar."; $("limpar-erro").style.display = "block"; return; }
     const ficheiro = descarregarCopia();
     const ops = [];
-    for(const c of ["pagamentos", "sociosPrivado", "socios", "cargos"]) for(const x of D[c]) ops.push({tipo: "del", col: c, id: x.id});
+    for(const c of ["pagamentos", "sociosPrivado", "socios", "cargos", "movimentos", "entidades"]) for(const x of D[c]) ops.push({tipo: "del", col: c, id: x.id});
     // a numeração dos recibos volta ao início (próximo recibo = AAAA/0001)
     const anos = new Set(D.pagamentos.map((p)=>String(p.data).slice(0, 4)).concat(hojeISO().slice(0, 4)));
     for(const ano of anos) ops.push({tipo: "del", col: "contadores", id: "recibos-" + ano});

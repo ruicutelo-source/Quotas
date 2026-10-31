@@ -161,3 +161,7 @@ table.m-ficha td{font-size:9.5pt;padding:3px 6px;border-bottom:1px solid #E5E7EB
 .m-quadro td.na{color:#C0C4CC}.m-quadro .nome{max-width:none}
 table.m-tab tr,.m-quadro tr{break-inside:avoid;page-break-inside:avoid}
 thead{display:table-header-group}
+/* ---- Fase 4 ---- */
+.m-assin{display:flex;justify-content:space-around;margin-top:40px;font-size:10pt;text-align:center}
+#nav button{font-size:11px;padding-left:0;padding-right:0}
+td.verde{color:var(--verde)}

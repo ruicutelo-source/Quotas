@@ -13,7 +13,7 @@ const FIREBASE_CONFIG = {
   messagingSenderId: "1042881769887",
   appId: "1:1042881769887:web:6b3796aa2b52ceae078daa"
 };
-const VERSAO_APP = "3.0 (fase 3)";
+const VERSAO_APP = "4.0 (fase 4)";
 
 /* Administrador principal: tem sempre acesso total, mesmo sem ficha em Utilizadores.
    Tem de ser igual ao email escrito nas regras do Firestore. */
@@ -37,9 +37,13 @@ const PERFIS = ["Administrador", "Tesoureiro", "Consulta"];
    pagamentos/{id}:     {socioId, numeroSocio, nomeSocio, data, forma, itens:[{tipo, periodo, rot, valor}],
                          subtotal, desconto, total, obs, anulado:{por, em, motivo}|null, recebidoPorNome,
                          recibo:{ano, num, txt:"2026/0001", em}|null, criadoPor, criadoEm}
+   movimentos/{id}:     {tipo: Receita|Despesa|Transferência, data, categoria, descricao, valor, conta (Caixa|Banco), contaDestino,
+                         entidadeId, entidadeNome, documento, estado (pago|porPagar), prazo, dataPag, obs, anulado, criadoPor, criadoEm}
+   entidades/{id}:      {nome, nif, telefone, email, morada, obs}   (fornecedores)
+   config/tesouraria:   {dataInicial, saldoInicial:{Caixa, Banco}}
    contadores/recibos-2026: {ultimo}   (último nº de recibo do ano; só se mexe numa transação)
    --------------------------------------------------------------------- */
-const COLS = ["config", "cargos", "socios", "sociosPrivado", "utilizadores", "pagamentos", "contadores"];
+const COLS = ["config", "cargos", "socios", "sociosPrivado", "utilizadores", "pagamentos", "contadores", "movimentos", "entidades"];
 let D = {}; for(const c of COLS) D[c] = [];
 const Idx = {socio: new Map(), priv: new Map(), pagos: new Map(), pagSocio: new Map()};
 function reindexar(){
@@ -59,14 +63,17 @@ function reindexar(){
 const LISTAS_INICIAIS = {
   tiposSocio: ["Efetivo", "Fundador", "Honorário", "Sócio de Formação", "Atleta", "Outro"],
   tiposIsentos: ["Honorário"],
-  formasPagamento: ["Dinheiro", "Multibanco", "MB WAY", "Transferência Bancária", "Cheque"]
+  formasPagamento: ["Dinheiro", "Multibanco", "MB WAY", "Transferência Bancária", "Cheque"],
+  formasCaixa: ["Dinheiro"],
+  categoriasReceita: ["Eventos", "Donativos", "Patrocínios", "Merchandising", "Outras receitas"],
+  categoriasDespesa: ["Eventos", "Sede e renda", "Água, luz e comunicações", "Material e equipamento", "Seguros", "Despesas bancárias", "Outras despesas"]
 };
 const CLUBE_INICIAL = {nome: "", nif: "", telefone: "", email: "", morada: "", codigoPostal: "", localidade: "",
                        logo: "", joia: 0, quotaMensal: 0, quotaAnual: 0};
 const clube = ()=> ({...CLUBE_INICIAL, ...(D.config.find((c)=>c.id === "clube") || {})});
 const listas = ()=>{ const l = D.config.find((c)=>c.id === "listas") || {};
-  return {tiposSocio: l.tiposSocio || LISTAS_INICIAIS.tiposSocio, tiposIsentos: l.tiposIsentos || LISTAS_INICIAIS.tiposIsentos,
-          formasPagamento: l.formasPagamento || LISTAS_INICIAIS.formasPagamento}; };
+  const r = {}; for(const k of Object.keys(LISTAS_INICIAIS)) r[k] = l[k] || LISTAS_INICIAIS[k];
+  return r; };
 /* código interno fixo do sócio (o nº de sócio pode mudar nas renumerações; o código nunca muda) */
 const novoIdSocio = ()=> "S" + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 const numTxt = (s)=> s && s.numero ? "nº " + s.numero : "sem nº";
@@ -150,7 +157,7 @@ const Nuvem = {
   },
   subscrever(p){
     this.pararDados();
-    const cols = ["config", "cargos", "socios", "pagamentos"];
+    const cols = ["config", "cargos", "socios", "pagamentos", "movimentos", "entidades"];
     if(p !== "Consulta") cols.push("sociosPrivado");
     if(p === "Administrador") cols.push("utilizadores");
     for(const c of COLS) if(!cols.includes(c)) D[c] = [];
@@ -252,7 +259,7 @@ let perfil = null;            // "Administrador" | "Tesoureiro" | "Consulta"
 const eAdmin = ()=> perfil === "Administrador";
 const eTes = ()=> perfil === "Administrador" || perfil === "Tesoureiro";
 let ecraAtual = null;
-const ECRAS = [["inicio", "📊", "Início"], ["socios", "👥", "Sócios"], ["quotas", "💶", "Quotas"], ["clube", "🏛️", "Clube"], ["sessao", "👤", "Sessão"]];
+const ECRAS = [["inicio", "📊", "Início"], ["socios", "👥", "Sócios"], ["quotas", "💶", "Quotas"], ["tesouraria", "🏦", "Tesouraria"], ["clube", "🏛️", "Clube"], ["sessao", "👤", "Sessão"]];
 const RENDER = {};           // cada ecrã regista aqui a sua função de desenho
 
 function entrouUtilizador(email, p){

@@ -96,6 +96,76 @@
   </div>
 </section>
 
+<!-- ======================= TESOURARIA ======================= -->
+<section class="ecra" id="ecra-tesouraria">
+  <div class="abas" id="tes-abas">
+    <button data-aba="painel" class="ativo">Painel</button>
+    <button data-aba="extrato">Movimentos</button>
+    <button data-aba="porpagar">Por pagar</button>
+    <button data-aba="fornecedores">Fornecedores</button>
+    <button data-aba="contas">Saldos iniciais</button>
+  </div>
+  <div class="linha quebra" id="tes-novos" style="margin:0 0 10px">
+    <button class="bt verde" id="tes-receita">+ Receita</button>
+    <button class="bt verm" id="tes-despesa">+ Despesa</button>
+    <button class="bt sec" id="tes-transf">⇄ Transferência</button>
+  </div>
+
+  <div class="aba ativo" id="aba-t-painel">
+    <div class="grelha g4">
+      <div class="cartao kpi"><div class="rot">Saldo total</div><div class="val azul" id="t-saldo"></div></div>
+      <div class="cartao kpi"><div class="rot">Caixa (dinheiro)</div><div class="val azul" id="t-caixa"></div></div>
+      <div class="cartao kpi"><div class="rot">Banco</div><div class="val azul" id="t-banco"></div></div>
+      <div class="cartao kpi clic" id="t-pp-cartao"><div class="rot">Despesas por pagar</div><div class="val verm" id="t-pp"></div><div class="pequeno" id="t-pp-venc"></div></div>
+    </div>
+    <div class="barra" style="margin-top:12px">
+      <button class="bt sec peq" id="t-ano-ant">◀</button><b id="t-ano" style="font-size:18px;min-width:50px;text-align:center"></b><button class="bt sec peq" id="t-ano-seg">▶</button>
+      <div class="cresce"></div><button class="bt sec" id="t-relatorio">Relatório de contas</button>
+    </div>
+    <div class="bloco"><div class="tit navy"><span>MÊS A MÊS</span></div><div class="rolar" id="t-meses"></div></div>
+    <div class="grelha g2" style="margin-top:12px">
+      <div class="bloco"><div class="tit verde"><span>RECEITAS POR CATEGORIA</span></div><div id="t-cat-rec"></div></div>
+      <div class="bloco"><div class="tit verm"><span>DESPESAS POR CATEGORIA</span></div><div id="t-cat-des"></div></div>
+    </div>
+    <div class="nota" id="t-nota-inicio"></div>
+  </div>
+
+  <div class="aba" id="aba-t-extrato">
+    <div class="barra">
+      <select id="t-ext-per" style="width:auto;min-width:160px"></select>
+      <select id="t-ext-conta" style="width:auto"><option value="">Caixa e Banco</option><option>Caixa</option><option>Banco</option></select>
+      <select id="t-ext-tipo" style="width:auto"><option value="">Todos os tipos</option><option>Quotas</option><option>Receita</option><option>Despesa</option><option>Transferência</option></select>
+      <button class="bt sec" id="t-ext-imprimir">Imprimir</button>
+    </div>
+    <div class="bloco"><div class="tit navy"><span>MOVIMENTOS</span><span id="t-ext-tit"></span></div><div class="rolar" id="t-ext"></div></div>
+    <div class="nota">Escolha uma conta (Caixa ou Banco) para ver o saldo linha a linha. As quotas vêm dos pagamentos registados em Quotas.</div>
+  </div>
+
+  <div class="aba" id="aba-t-porpagar">
+    <div class="bloco"><div class="tit verm"><span>DESPESAS POR PAGAR</span><span id="t-pp-tit"></span></div><div class="rolar" id="t-pp-lista"></div></div>
+    <div class="nota">Uma despesa por pagar só sai do saldo quando for paga.</div>
+  </div>
+
+  <div class="aba" id="aba-t-fornecedores">
+    <div class="barra"><input type="search" id="t-forn-pesq" placeholder="Pesquisar fornecedor…"><button class="bt" id="t-forn-novo">+ Novo fornecedor</button></div>
+    <div class="bloco"><div class="tit navy"><span>FORNECEDORES E ENTIDADES</span></div><div class="rolar" id="t-forn-lista"></div></div>
+  </div>
+
+  <div class="aba" id="aba-t-contas">
+    <div class="cartao" style="max-width:560px">
+      <h3 style="margin-top:0">Saldos no início</h3>
+      <div class="nota">O dinheiro que o clube tinha no dia em que começou a usar a app. Os movimentos anteriores a essa data não contam para o saldo.</div>
+      <label class="campo">Data de início</label><input type="date" id="t-ini-data">
+      <div class="grelha g2" style="gap:10px">
+        <div><label class="campo">Caixa (€)</label><input type="text" id="t-ini-caixa" inputmode="decimal"></div>
+        <div><label class="campo">Banco (€)</label><input type="text" id="t-ini-banco" inputmode="decimal"></div>
+      </div>
+      <button class="bt" id="t-ini-gravar" style="margin-top:12px">Gravar</button>
+      <div class="nota" id="t-ini-so-ler" style="display:none">Só o Administrador pode alterar os saldos iniciais.</div>
+    </div>
+  </div>
+</section>
+
 <!-- ======================= CLUBE ======================= -->
 <section class="ecra" id="ecra-clube">
   <div class="abas" id="clube-abas">
@@ -103,6 +173,7 @@
     <button data-aba="cargos">Cargos</button>
     <button data-aba="listas">Listas</button>
     <button data-aba="utilizadores" id="aba-utilizadores">Utilizadores</button>
+    <button data-aba="copias">Cópias</button>
   </div>
 
   <div class="aba ativo" id="aba-dados">
@@ -147,8 +218,8 @@
     <div class="linha" style="justify-content:flex-end;margin-top:12px"><button class="bt" id="clb-gravar">Gravar</button></div>
     <div class="cartao" id="clb-perigo" style="margin-top:20px;border-color:var(--verm);display:none">
       <h3 style="margin-top:0;color:var(--verm)">Zona de perigo</h3>
-      <div class="nota">Põe o programa a zeros: apaga <b>todos os sócios, NIF/NIB, pagamentos e cargos</b>, e a numeração dos recibos volta ao início.
-        Ficam os dados do clube, os valores, as listas e os utilizadores. Antes de apagar, a app descarrega uma cópia de tudo.</div>
+      <div class="nota">Põe o programa a zeros: apaga <b>todos os sócios, NIF/NIB, pagamentos, cargos, movimentos de tesouraria e fornecedores</b>, e a numeração dos recibos volta ao início.
+        Ficam os dados do clube, os valores, as listas, os saldos iniciais e os utilizadores. Antes de apagar, a app descarrega uma cópia de tudo.</div>
       <button class="bt verm" id="clb-limpar">Limpar dados</button>
     </div>
   </div>
@@ -165,9 +236,34 @@
         <div class="linha" style="padding:10px" id="ls-tipos-add"><input type="text" id="ls-tipos-novo" placeholder="Novo tipo de sócio"><button class="bt peq" id="ls-tipos-bt">Adicionar</button></div></div>
       <div class="bloco"><div class="tit navy"><span>FORMAS DE PAGAMENTO</span></div><div id="ls-formas"></div>
         <div class="linha" style="padding:10px" id="ls-formas-add"><input type="text" id="ls-formas-novo" placeholder="Nova forma de pagamento"><button class="bt peq" id="ls-formas-bt">Adicionar</button></div></div>
+      <div class="bloco"><div class="tit verde"><span>CATEGORIAS DE RECEITA</span></div><div id="ls-catrec"></div>
+        <div class="linha" style="padding:10px" id="ls-catrec-add"><input type="text" id="ls-catrec-novo" placeholder="Nova categoria de receita"><button class="bt peq" id="ls-catrec-bt">Adicionar</button></div></div>
+      <div class="bloco"><div class="tit verm"><span>CATEGORIAS DE DESPESA</span></div><div id="ls-catdes"></div>
+        <div class="linha" style="padding:10px" id="ls-catdes-add"><input type="text" id="ls-catdes-novo" placeholder="Nova categoria de despesa"><button class="bt peq" id="ls-catdes-bt">Adicionar</button></div></div>
     </div>
-    <div class="nota">Mudar o nome de um tipo de sócio muda-o também em todas as fichas. Um tipo em uso não pode ser apagado.
-      Os tipos marcados como <b>isento</b> não pagam quotas nem joia.</div>
+    <div class="nota">Mudar o nome de um valor muda-o também em todas as fichas e movimentos. Um valor em uso não pode ser apagado.
+      Os tipos marcados como <b>isento</b> não pagam quotas nem joia. As formas marcadas como <b>caixa</b> entram no dinheiro em caixa; as outras entram no banco.</div>
+  </div>
+
+  <div class="aba" id="aba-copias">
+    <div class="grelha g2">
+      <div class="cartao">
+        <h3 style="margin-top:0">Exportar para Excel</h3>
+        <div class="nota">Um ficheiro .xlsx com as folhas Sócios, Pagamentos, Tesouraria, Fornecedores e Contas do ano. Abre no Excel 2016 ou mais recente.</div>
+        <button class="bt" id="cp-excel">Exportar para Excel</button>
+      </div>
+      <div class="cartao" id="cp-json-cartao">
+        <h3 style="margin-top:0">Cópia de segurança completa</h3>
+        <div class="nota">Um ficheiro .json com todos os dados (incluindo NIF e NIB). Guarde-o num sítio seguro: é com ele que se pode restaurar.</div>
+        <button class="bt sec" id="cp-json">Descarregar cópia</button>
+      </div>
+    </div>
+    <div class="cartao" id="cp-restaurar-cartao" style="margin-top:16px;border-color:var(--verm);display:none">
+      <h3 style="margin-top:0;color:var(--verm)">Restaurar uma cópia</h3>
+      <div class="nota">Substitui <b>todos</b> os dados atuais pelos da cópia. Antes de restaurar, a app descarrega uma cópia do estado atual.</div>
+      <input type="file" id="cp-fich" accept=".json,application/json" style="display:none">
+      <button class="bt verm" id="cp-restaurar">Escolher cópia e restaurar…</button>
+    </div>
   </div>
 
   <div class="aba" id="aba-utilizadores">
@@ -233,6 +329,8 @@
 <script src="quotas.js"></script>
 <script src="recibos.js"></script>
 <script src="mapas.js"></script>
+<script src="tesouraria.js"></script>
+<script src="copias.js"></script>
 <script src="clube.js"></script>
 <script src="sessao.js"></script>
 <script>arrancar();</script>
