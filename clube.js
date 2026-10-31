@@ -21,6 +21,7 @@ function desenharDados(){
   const c = clube(), pode = eAdmin();
   $("clb-so-ler").style.display = pode ? "none" : "block";
   ["clb-gravar", "clb-logo-esc", "clb-logo-tirar"].forEach((id)=>$(id).style.display = pode ? "" : "none");
+  $("clb-perigo").style.display = (!MODO_FIREBASE || Store.utilizador() === ADMIN_PRINCIPAL) ? "block" : "none";
   // só volta a preencher o formulário se os dados mudaram (para não apagar o que se está a escrever)
   const assin = perfil + JSON.stringify(c);
   if(assin === versaoDadosDesenhada) return;
@@ -225,3 +226,33 @@ function abrirUtilizador(id){
      toast("Utilizador gravado.");
    }}]);
 }
+
+/* ---------- limpar dados (só o Administrador principal) ---------- */
+function descarregarCopia(){
+  const copia = {app: "Quotas", versao: VERSAO_APP, data: new Date().toISOString(), por: Store.utilizador(), dados: {}};
+  for(const c of COLS) copia.dados[c] = D[c];
+  const d = new Date(), z = (n)=>String(n).padStart(2, "0");
+  const nome = `Quotas_copia_${d.getFullYear()}-${z(d.getMonth() + 1)}-${z(d.getDate())}_${z(d.getHours())}${z(d.getMinutes())}.json`;
+  const url = URL.createObjectURL(new Blob([JSON.stringify(copia, null, 1)], {type: "application/json"}));
+  const a = document.createElement("a"); a.href = url; a.download = nome; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url), 5000);
+  return nome;
+}
+$("clb-limpar").onclick = ()=>{
+  if(MODO_FIREBASE && Store.utilizador() !== ADMIN_PRINCIPAL) return;
+  const n = {socios: D.socios.length, pagamentos: D.pagamentos.length, cargos: D.cargos.length};
+  janela("Limpar dados", `<p>Vai apagar <b>${n.socios}</b> sócio(s), <b>${n.pagamentos}</b> pagamento(s) e <b>${n.cargos}</b> cargo(s), com os NIF e NIB.
+      <b>Não se pode desfazer.</b></p>
+    <p class="nota">Primeiro é descarregada uma cópia de tudo (ficheiro <b>Quotas_copia_….json</b> nas Transferências). Guarde-a.</p>
+    <label class="campo">Para confirmar, escreva APAGAR</label><input type="text" id="limpar-conf" autocomplete="off">
+    <div class="aviso" id="limpar-erro" style="display:none"></div>`,
+  [{texto: "Cancelar", classe: "sec", id: "limpar-cancelar"}, {texto: "Descarregar cópia e apagar", classe: "verm", id: "limpar-ok", manter: true, acao: ()=>{
+    if($("limpar-conf").value.trim() !== "APAGAR"){ $("limpar-erro").textContent = "Escreva APAGAR (em maiúsculas) para confirmar."; $("limpar-erro").style.display = "block"; return; }
+    const ficheiro = descarregarCopia();
+    const ops = [];
+    for(const c of ["pagamentos", "sociosPrivado", "socios", "cargos"]) for(const x of D[c]) ops.push({tipo: "del", col: c, id: x.id});
+    fecharJanela();
+    gravar(ops).then(()=>aviso(`Dados apagados. A cópia ficou guardada em ${ficheiro}.`, "Limpar dados")).catch(()=>{});
+    toast("A apagar…");
+  }}]);
+};
