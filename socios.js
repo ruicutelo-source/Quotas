@@ -62,7 +62,7 @@ function sociosFiltrados(){
 function tabelaSocios(lista){
   return tabela(
     [{t: "Nº", num: true}, {t: "Nome"}, {t: "Tipo", cl: "so-largo"}, {t: "Quota"}, {t: "Telemóvel", cl: "so-largo"}, {t: "Localidade", cl: "so-largo"}, {t: "Estado"}],
-    lista.map((s)=>`<tr class="clic" data-id="${esc(s.id)}"><td class="num">${s.numero || "—"}</td><td>${esc(s.nome)}</td>
+    lista.map((s)=>`<tr class="clic" data-id="${esc(s.id)}"><td class="num">${s.numero || "—"}</td><td><div class="com-ava">${avatar(s)}<span>${esc(s.nome)}</span></div></td>
       <td class="so-largo">${esc(s.tipo)}</td><td>${esc(s.periodicidade)}</td><td class="so-largo">${esc(s.telemovel)}</td>
       <td class="so-largo">${esc(s.localidade)}</td>
       <td>${socioAtivo(s) ? `<span class="chip verde">Ativo</span>` : `<span class="chip verm">Inativo</span>`}</td></tr>`),
@@ -104,7 +104,14 @@ function abrirSocio(id){
     ? `<div class="nota">Números anteriores: ${s.historicoNumeros.map((h)=>`nº ${h.numero} (até ${dataPT(h.ate)})`).join(" · ")}</div>` : "";
   const corpo = `
     <div class="secao">Identificação</div>
-    <div class="ficha-grid">
+    <div class="ficha-topo">
+    <div class="foto-zona">
+      <div class="foto-caixa" id="f-foto">${s && s.fotoMini ? `<img src="${esc(s.fotoMini)}" alt="" class="desfocada">` : `<span class="foto-vazia">${esc(iniciais(s ? s.nome : ""))}</span>`}</div>
+      ${pode ? `<input type="file" id="f-foto-fich" accept="image/*" style="display:none">
+        <div class="linha" style="gap:6px;justify-content:center;margin-top:6px"><button type="button" class="bt sec peq" id="f-foto-esc">📷 Foto</button>
+        <button type="button" class="bt sec peq verm-txt" id="f-foto-tirar" style="${s && s.fotoMini ? "" : "display:none"}">Remover</button></div>` : ""}
+    </div>
+    <div class="ficha-grid cresce">
       <div><label class="campo">Nº de sócio</label><input type="text" id="f-numero" maxlength="7" autocomplete="off"
         value="${novo ? proximoNumero() : (s.numero || "")}" placeholder="sem nº" ${podeNum ? "" : "disabled"}></div>
       <div class="s2"><label class="campo">Nome completo *</label><input type="text" id="f-nome" value="${v("nome")}" ${dis}></div>
@@ -112,7 +119,7 @@ function abrirSocio(id){
       <div class="s2"><label class="campo">Nome abreviado</label><input type="text" id="f-abrev" value="${v("nomeAbreviado")}" placeholder="ex.: Rui Pinto" ${dis}></div>
       <div><label class="campo">NIF</label>${nif}</div>
       <div class="s2"><label class="campo">NIB / IBAN</label>${nib}</div>
-    </div>
+    </div></div>
     ${hist}
     <div class="secao">Contactos</div>
     <div class="ficha-grid">
@@ -149,6 +156,17 @@ function abrirSocio(id){
   if(s) acoes.push({texto: "Imprimir", classe: "sec", id: "f-imprimir", manter: true, acao: ()=>mapaFicha(s.id)});
   if(pode) acoes.push({texto: "Gravar", id: "f-gravar", manter: true, acao: gravarSocio});
   janela(novo ? "Novo sócio" : `Sócio ${numTxt(s)} · ${s.nome}`, corpo, acoes, true);
+  // foto: a miniatura aparece logo; a foto grande é lida da base de dados
+  if(s && s.fotoMini) Store.lerFoto(s.id).then((f)=>{ if(f && F && F.id === s.id && F.foto === undefined) mostrarFoto(f.img); }).catch(()=>{});
+  if(pode){
+    $("f-foto-esc").onclick = ()=>$("f-foto-fich").click();
+    $("f-foto-fich").onchange = (e)=>{
+      const fich = e.target.files[0]; e.target.value = ""; if(!fich) return;
+      prepararFoto(fich).then((f)=>{ F.foto = f; mostrarFoto(f.img); $("f-foto-tirar").style.display = ""; toast("Foto escolhida. Carregue em Gravar."); })
+        .catch(()=>aviso("Não foi possível ler essa imagem."));
+    };
+    $("f-foto-tirar").onclick = ()=>{ F.foto = null; $("f-foto").innerHTML = `<span class="foto-vazia">${esc(iniciais($("f-nome").value))}</span>`; $("f-foto-tirar").style.display = "none"; };
+  }
   desenharAgregado();
   if($("f-receber")) $("f-receber").onclick = ()=>{ fecharJanela(); abrirReceber(s.id); };
   $("modal-corpo").querySelectorAll("tr[data-pag]").forEach((tr)=>tr.onclick = ()=>abrirPagamento(tr.dataset.pag));
@@ -261,7 +279,10 @@ function gravarSocio(){
     agregado: F.agregado.filter((a)=>Idx.socio.has(a.id)),
     ...(novo ? carimbo(true) : {criadoPor: antigo.criadoPor || "", criadoEm: antigo.criadoEm || 0, ...carimbo(false)})
   };
-  const ops = [{tipo: "set", col: "socios", id, dados}, {tipo: "set", col: "sociosPrivado", id, dados: {nif, nib}},
+  // foto: F.foto undefined = sem mudança; {img, mini} = nova; null = removida
+  dados.fotoMini = F.foto === undefined ? ((antigo && antigo.fotoMini) || "") : (F.foto ? F.foto.mini : "");
+  const opsFoto = F.foto === undefined ? [] : F.foto ? [{tipo: "set", col: "fotos", id, dados: {img: F.foto.img}}] : (antigo && antigo.fotoMini ? [{tipo: "del", col: "fotos", id}] : []);
+  const ops = [...opsFoto, {tipo: "set", col: "socios", id, dados}, {tipo: "set", col: "sociosPrivado", id, dados: {nif, nib}},
                ...opsAgregado(id, antigo ? (antigo.agregado || []) : [], dados.agregado)];
   fecharJanela();
   gravar(ops);         // aparece logo; sem internet fica em fila e é enviado quando a ligação voltar
@@ -287,7 +308,7 @@ function apagarSocio(id){
   confirmar("Apagar sócio", `<p>Apagar a ficha de <b>${esc(s.nome)}</b> (${numTxt(s)})?</p>
     <p class="nota">Se o sócio desistiu, é melhor pôr o <b>Estado em Inativo</b>: a ficha fica guardada.
     Apagar só para fichas criadas por engano.</p>`, "Apagar", ()=>{
-    const ops = [{tipo: "del", col: "socios", id}, {tipo: "del", col: "sociosPrivado", id}, ...opsAgregado(id, s.agregado || [], [])];
+    const ops = [{tipo: "del", col: "socios", id}, {tipo: "del", col: "sociosPrivado", id}, ...(s.fotoMini ? [{tipo: "del", col: "fotos", id}] : []), ...opsAgregado(id, s.agregado || [], [])];
     for(const c of D.cargos) if(c.socioId === id) ops.push({tipo: "update", col: "cargos", id: c.id, dados: {socioId: ""}});
     gravar(ops).then(()=>toast("Sócio apagado."));
   }, "verm");
@@ -332,4 +353,29 @@ function renumerar(){
         toast(`Renumeração feita: ${muda.length} ${muda.length === 1 ? "sócio" : "sócios"}.`);
       }}]
     : [{texto: "Fechar", id: "ren-cancelar"}], true);
+}
+
+/* ---------- fotos ---------- */
+const iniciais = (nome)=>{ const p = String(nome || "").trim().split(/\s+/).filter(Boolean); return p.length ? (p[0][0] + (p.length > 1 ? p[p.length - 1][0] : "")).toUpperCase() : "?"; };
+const avatar = (s)=> s.fotoMini ? `<img class="ava" src="${esc(s.fotoMini)}" alt="" loading="lazy">` : `<span class="ava">${esc(iniciais(s.nome))}</span>`;
+function mostrarFoto(img){ const c = $("f-foto"); if(c) c.innerHTML = `<img src="${esc(img)}" alt="Foto do sócio">`; }
+/* recorta e reduz: foto da ficha 360×480 (retrato, ao centro) e miniatura 96×96 (parte de cima, onde costuma estar a cara) */
+function prepararFoto(ficheiro){
+  const abrir = window.createImageBitmap ? createImageBitmap(ficheiro, {imageOrientation: "from-image"}).catch(()=>abrirImagem(ficheiro)) : abrirImagem(ficheiro);
+  return abrir.then((im)=>{
+    const W = im.width, H = im.height;
+    const corte = (cw, ch, ox, oy, w, h, q)=>{ const cv = document.createElement("canvas"); cv.width = w; cv.height = h;
+      const ctx = cv.getContext("2d"); ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, w, h); ctx.drawImage(im, ox, oy, cw, ch, 0, 0, w, h); return cv.toDataURL("image/jpeg", q); };
+    // retrato 3:4
+    let cw = W, ch = W * 4 / 3; if(ch > H){ ch = H; cw = H * 3 / 4; }
+    const img = corte(cw, ch, (W - cw) / 2, (H - ch) / 2, 360, 480, 0.82);
+    // quadrado para a miniatura
+    const l = Math.min(W, H), oy = H > W ? (H - l) * 0.3 : 0;
+    const mini = corte(l, l, (W - l) / 2, oy, 96, 96, 0.72);
+    return {img, mini};
+  });
+}
+function abrirImagem(ficheiro){
+  return new Promise((ok, erro)=>{ const im = new Image(), url = URL.createObjectURL(ficheiro);
+    im.onload = ()=>{ URL.revokeObjectURL(url); ok(im); }; im.onerror = ()=>{ URL.revokeObjectURL(url); erro(); }; im.src = url; });
 }

@@ -67,7 +67,7 @@ function exportarExcel(){
   }).catch(()=>aviso("Não foi possível criar o ficheiro Excel. Na primeira vez o aparelho precisa de internet."));
 }
 $("cp-excel").onclick = exportarExcel;
-$("cp-json").onclick = ()=>{ const n = descarregarCopia(); toast("Cópia descarregada: " + n); };
+$("cp-json").onclick = ()=>{ toast("A preparar a cópia…"); descarregarCopia().then((n)=>toast("Cópia descarregada: " + n)).catch(()=>aviso("Não foi possível criar a cópia.")); };
 
 /* ---------- restaurar (só o Administrador principal) ---------- */
 $("cp-restaurar").onclick = ()=>{ if(ehPrincipal()) $("cp-fich").click(); };
@@ -85,7 +85,8 @@ $("cp-fich").onchange = (e)=>{
       <div class="aviso" id="rest-erro" style="display:none"></div>`,
     [{texto: "Cancelar", classe: "sec", id: "rest-cancelar"}, {texto: "Restaurar", classe: "verm", id: "rest-ok", manter: true, acao: ()=>{
       if($("rest-conf").value.trim() !== "APAGAR"){ $("rest-erro").textContent = "Escreva APAGAR (em maiúsculas) para confirmar."; $("rest-erro").style.display = "block"; return; }
-      descarregarCopia();
+      fecharJanela(); toast("A guardar a cópia do estado atual…");
+      descarregarCopia().then(()=>{
       const ops = [];
       for(const col of COLS_COPIA){
         const novos = c.dados[col] || [], ids = new Set(novos.map((x)=>x.id));
@@ -98,9 +99,13 @@ $("cp-fich").onchange = (e)=>{
       const anosAtuais = new Set(D.pagamentos.map((p)=>String(p.data).slice(0, 4)).concat(hojeISO().slice(0, 4)));
       for(const ano of anosAtuais) if(!maxAno[ano]) ops.push({tipo: "del", col: "contadores", id: "recibos-" + ano});
       for(const [ano, n] of Object.entries(maxAno)) ops.push({tipo: "set", col: "contadores", id: "recibos-" + ano, dados: {ultimo: n}});
-      fecharJanela();
-      gravar(ops).then(()=>aviso("Cópia restaurada.", "Restaurar cópia")).catch(()=>{});
+      // fotos: apaga as que não estão na cópia e repõe as da cópia
+      const fotosCopia = c.dados.fotos || [], idsFotos = new Set(fotosCopia.map((f)=>f.id));
+      for(const x of D.socios) if(x.fotoMini && !idsFotos.has(x.id)) ops.push({tipo: "del", col: "fotos", id: x.id});
+      for(const f of fotosCopia) if(f.id && f.img) ops.push({tipo: "set", col: "fotos", id: f.id, dados: {img: f.img}});
       toast("A restaurar…");
+      return gravar(ops).then(()=>aviso("Cópia restaurada.", "Restaurar cópia"));
+      }).catch(()=>aviso("Não foi possível restaurar a cópia.", "Restaurar cópia"));
     }}]);
   };
   leitor.readAsText(f);

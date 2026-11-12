@@ -246,15 +246,19 @@ function abrirUtilizador(id){
 }
 
 /* ---------- limpar dados (só o Administrador principal) ---------- */
+/* descarrega a cópia completa (com as fotos, que são lidas da base de dados); devolve uma promessa com o nome do ficheiro */
 function descarregarCopia(){
-  const copia = {app: "Quotas", versao: VERSAO_APP, data: new Date().toISOString(), por: Store.utilizador(), dados: {}};
-  for(const c of COLS) copia.dados[c] = D[c];
-  const d = new Date(), z = (n)=>String(n).padStart(2, "0");
-  const nome = `Quotas_copia_${d.getFullYear()}-${z(d.getMonth() + 1)}-${z(d.getDate())}_${z(d.getHours())}${z(d.getMinutes())}.json`;
-  const url = URL.createObjectURL(new Blob([JSON.stringify(copia, null, 1)], {type: "application/json"}));
-  const a = document.createElement("a"); a.href = url; a.download = nome; document.body.appendChild(a); a.click(); a.remove();
-  setTimeout(()=>URL.revokeObjectURL(url), 5000);
-  return nome;
+  return Store.lerFotos().catch(()=>[]).then((fotos)=>{
+    const copia = {app: "Quotas", versao: VERSAO_APP, data: new Date().toISOString(), por: Store.utilizador(), dados: {}};
+    for(const c of COLS) copia.dados[c] = D[c];
+    copia.dados.fotos = fotos;
+    const d = new Date(), z = (n)=>String(n).padStart(2, "0");
+    const nome = `Quotas_copia_${d.getFullYear()}-${z(d.getMonth() + 1)}-${z(d.getDate())}_${z(d.getHours())}${z(d.getMinutes())}.json`;
+    const url = URL.createObjectURL(new Blob([JSON.stringify(copia, null, 1)], {type: "application/json"}));
+    const a = document.createElement("a"); a.href = url; a.download = nome; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url), 5000);
+    return nome;
+  });
 }
 $("clb-limpar").onclick = ()=>{
   if(MODO_FIREBASE && Store.utilizador() !== ADMIN_PRINCIPAL) return;
@@ -266,14 +270,16 @@ $("clb-limpar").onclick = ()=>{
     <div class="aviso" id="limpar-erro" style="display:none"></div>`,
   [{texto: "Cancelar", classe: "sec", id: "limpar-cancelar"}, {texto: "Descarregar cópia e apagar", classe: "verm", id: "limpar-ok", manter: true, acao: ()=>{
     if($("limpar-conf").value.trim() !== "APAGAR"){ $("limpar-erro").textContent = "Escreva APAGAR (em maiúsculas) para confirmar."; $("limpar-erro").style.display = "block"; return; }
-    const ficheiro = descarregarCopia();
-    const ops = [];
-    for(const c of ["pagamentos", "sociosPrivado", "socios", "cargos", "movimentos", "entidades"]) for(const x of D[c]) ops.push({tipo: "del", col: c, id: x.id});
-    // a numeração dos recibos volta ao início (próximo recibo = AAAA/0001)
-    const anos = new Set(D.pagamentos.map((p)=>String(p.data).slice(0, 4)).concat(hojeISO().slice(0, 4)));
-    for(const ano of anos) ops.push({tipo: "del", col: "contadores", id: "recibos-" + ano});
-    fecharJanela();
-    gravar(ops).then(()=>aviso(`Dados apagados. A cópia ficou guardada em ${ficheiro}.`, "Limpar dados")).catch(()=>{});
-    toast("A apagar…");
+    fecharJanela(); toast("A guardar a cópia…");
+    descarregarCopia().then((ficheiro)=>{
+      const ops = [];
+      for(const c of ["pagamentos", "sociosPrivado", "socios", "cargos", "movimentos", "entidades"]) for(const x of D[c]) ops.push({tipo: "del", col: c, id: x.id});
+      for(const x of D.socios) if(x.fotoMini) ops.push({tipo: "del", col: "fotos", id: x.id});
+      // a numeração dos recibos volta ao início (próximo recibo = AAAA/0001)
+      const anos = new Set(D.pagamentos.map((p)=>String(p.data).slice(0, 4)).concat(hojeISO().slice(0, 4)));
+      for(const ano of anos) ops.push({tipo: "del", col: "contadores", id: "recibos-" + ano});
+      toast("A apagar…");
+      return gravar(ops).then(()=>aviso(`Dados apagados. A cópia ficou guardada em ${ficheiro}.`, "Limpar dados"));
+    }).catch(()=>aviso("Não foi possível guardar a cópia; nada foi apagado.", "Limpar dados"));
   }}]);
 };

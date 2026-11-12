@@ -13,7 +13,7 @@ const FIREBASE_CONFIG = {
   messagingSenderId: "1042881769887",
   appId: "1:1042881769887:web:6b3796aa2b52ceae078daa"
 };
-const VERSAO_APP = "4.2";
+const VERSAO_APP = "4.3";
 
 /* Administrador principal: tem sempre acesso total, mesmo sem ficha em Utilizadores.
    Tem de ser igual ao email escrito nas regras do Firestore. */
@@ -40,10 +40,11 @@ const PERFIS = ["Administrador", "Tesoureiro", "Consulta"];
    movimentos/{id}:     {tipo: Receita|Despesa|Transferência, data, categoria, descricao, valor, conta (Caixa|Banco), contaDestino,
                          entidadeId, entidadeNome, documento, estado (pago|porPagar), prazo, dataPag, obs, anulado, criadoPor, criadoEm}
    entidades/{id}:      {nome, nif, telefone, email, morada, obs}   (fornecedores)
+   fotos/{socioId}:     {img}  (foto da ficha, ~360×480 JPEG; só se lê ao abrir a ficha. A miniatura fica em socios.fotoMini)
    config/tesouraria:   {dataInicial, saldoInicial:{Caixa, Banco}}
    contadores/recibos-2026: {ultimo}   (último nº de recibo do ano; só se mexe numa transação)
    --------------------------------------------------------------------- */
-const COLS = ["config", "cargos", "socios", "sociosPrivado", "utilizadores", "pagamentos", "contadores", "movimentos", "entidades"];
+const COLS = ["config", "cargos", "socios", "sociosPrivado", "utilizadores", "pagamentos", "contadores", "movimentos", "entidades", "fotos"];
 let D = {}; for(const c of COLS) D[c] = [];
 const Idx = {socio: new Map(), priv: new Map(), pagos: new Map(), pagSocio: new Map()};
 function reindexar(){
@@ -115,6 +116,8 @@ const Local = {
     return this.aplicar([{tipo: "set", col: "contadores", id: cid, dados: {ultimo: n}},
       {tipo: "update", col: "pagamentos", id, dados: {recibo: {ano: Number(ano), num: n, txt: ano + "/" + String(n).padStart(4, "0"), em: Date.now()}}}]).then(()=>n);
   },
+  lerFoto(id){ return Promise.resolve(D.fotos.find((f)=>f.id === id) || null); },
+  lerFotos(){ return Promise.resolve(D.fotos.slice()); },
   utilizador(){ return "modo-local"; }
 };
 
@@ -206,6 +209,9 @@ const Nuvem = {
       });
     }));
   },
+  /* as fotos não se carregam todas: só a da ficha que se abre */
+  lerFoto(id){ return this.db.collection("fotos").doc(id).get().then((d)=>d.exists ? {...d.data(), id} : null); },
+  lerFotos(){ return this.db.collection("fotos").get().then((q)=>q.docs.map((d)=>({...d.data(), id: d.id}))); },
   mudarPass(atual, nova){
     const u = this.auth.currentUser;
     const cred = firebase.auth.EmailAuthProvider.credential(u.email, atual);

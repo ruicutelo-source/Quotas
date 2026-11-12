@@ -165,3 +165,15 @@ thead{display:table-header-group}
 .m-assin{display:flex;justify-content:space-around;margin-top:40px;font-size:10pt;text-align:center}
 #nav button{font-size:11px;padding-left:0;padding-right:0}
 td.verde{color:var(--verde)}
+/* ---- fotos dos sócios ---- */
+.ficha-topo{display:flex;gap:14px;align-items:flex-start}
+.ficha-topo .cresce{flex:1;min-width:0}
+.foto-zona{flex:0 0 130px;padding-top:6px}
+.foto-caixa{width:130px;height:173px;border:1px dashed var(--linha);border-radius:10px;overflow:hidden;background:#EEF2F8;display:flex;align-items:center;justify-content:center}
+.foto-caixa img{width:100%;height:100%;object-fit:cover}
+.foto-caixa img.desfocada{filter:blur(2px)}
+.foto-vazia{font-size:40px;font-weight:700;color:#9AA8BF}
+@media (max-width:760px){.ficha-topo{flex-direction:column;align-items:center}.ficha-topo .cresce{width:100%}}
+.com-ava{display:flex;align-items:center;gap:10px}
+.ava{width:34px;height:34px;border-radius:50%;object-fit:cover;flex:0 0 34px;background:#DCE3EE;color:#5B6B7F;font-size:12px;font-weight:700;display:inline-flex;align-items:center;justify-content:center}
+.foto-zona .bt{white-space:nowrap;padding-left:10px;padding-right:10px}.foto-zona{flex-basis:150px}
