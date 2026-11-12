@@ -13,7 +13,7 @@ const FIREBASE_CONFIG = {
   messagingSenderId: "1042881769887",
   appId: "1:1042881769887:web:6b3796aa2b52ceae078daa"
 };
-const VERSAO_APP = "4.0 (fase 4)";
+const VERSAO_APP = "4.1";
 
 /* Administrador principal: tem sempre acesso total, mesmo sem ficha em Utilizadores.
    Tem de ser igual ao email escrito nas regras do Firestore. */
@@ -28,7 +28,7 @@ const PERFIS = ["Administrador", "Tesoureiro", "Consulta"];
                          valores:{"2026": {joia, mensal, anual}, ...}}   (joia/quotaMensal/quotaAnual: versão 1, só leitura)
    config/listas:       {tiposSocio:[...], tiposIsentos:[...], formasPagamento:[...]}
    cargos/{id}:         {orgao, cargo, socioId, nome, mandato}
-   socios/{id}:         {numero (null = sem nº), historicoNumeros:[{numero, ate}], ativo, nome, dataNascimento, telemovel, telefone, email, morada, codigoPostal, localidade,
+   socios/{id}:         {numero (inteiro, texto com letra como "203A", ou null = sem nº), historicoNumeros:[{numero, ate}], ativo, nome, nomeAbreviado, dataNascimento, telemovel, telefone, email, morada, codigoPostal, localidade,
                          tipo, periodicidade, perHist:[{ano, per}], pagoAte ("AAAA-MM"), inatividade:[{de, ate}],
                          dataEntrada, dataSaida, observacoes, nifMasc, nibMasc,
                          agregado:[{id, relacao}], criadoPor, criadoEm, alteradoPor, alteradoEm}

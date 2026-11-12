@@ -9,6 +9,7 @@ const ehPrincipal = ()=> !MODO_FIREBASE || Store.utilizador() === ADMIN_PRINCIPA
 function desenharCopias(){
   $("cp-json-cartao").style.display = eAdmin() ? "" : "none";
   $("cp-restaurar-cartao").style.display = ehPrincipal() ? "block" : "none";
+  $("cp-importar-cartao").style.display = eAdmin() ? "" : "none";
 }
 
 /* ---------- Excel ---------- */
@@ -32,12 +33,12 @@ function exportarExcel(){
     const wb = XLSX.utils.book_new(), tes = eTes();
     const socios = D.socios.slice().sort(porNumero);
     XLSX.utils.book_append_sheet(wb, folha(
-      ["Nº", "Nome", "Estado", "Tipo", "Quota", "Inscrição", "Saída", "Quotas pagas até", "Nascimento", "NIF", "NIB/IBAN", "Telemóvel", "Telefone", "Email", "Morada", "Código postal", "Localidade", "Em dívida", "Observações"],
+      ["Nº", "Nome", "Nome abreviado", "Estado", "Tipo", "Quota", "Inscrição", "Saída", "Quotas pagas até", "Nascimento", "NIF", "NIB/IBAN", "Telemóvel", "Telefone", "Email", "Morada", "Código postal", "Localidade", "Em dívida", "Observações"],
       socios.map((s)=>{ const p = Idx.priv.get(s.id) || {};
-        return [s.numero || "", s.nome, socioAtivo(s) ? "Ativo" : "Inativo", s.tipo, s.periodicidade, dataXL(s.dataEntrada), dataXL(s.dataSaida), s.pagoAte ? mesPT(s.pagoAte) : "",
+        return [s.numero || "", s.nome, s.nomeAbreviado || "", socioAtivo(s) ? "Ativo" : "Inativo", s.tipo, s.periodicidade, dataXL(s.dataEntrada), dataXL(s.dataSaida), s.pagoAte ? mesPT(s.pagoAte) : "",
           dataXL(s.dataNascimento), tes ? p.nif || "" : s.nifMasc || "", tes ? (p.nib ? ibanFormatar(p.nib) : "") : s.nibMasc || "", s.telemovel, s.telefone, s.email, s.morada,
           s.codigoPostal, s.localidade, euroXL(situacao(s).divida), s.observacoes || ""]; }),
-      [17], [5, 6, 8], [6, 30, 9, 16, 8, 11, 11, 10, 11, 11, 30, 12, 12, 26, 30, 10, 16, 11, 30]), "Sócios");
+      [18], [6, 7, 9], [6, 30, 18, 9, 16, 8, 11, 11, 10, 11, 11, 30, 12, 12, 26, 30, 10, 16, 11, 30]), "Sócios");
     const pags = D.pagamentos.slice().sort((a, b)=>String(a.data).localeCompare(String(b.data)) || (a.recibo ? a.recibo.num : 0) - (b.recibo ? b.recibo.num : 0));
     XLSX.utils.book_append_sheet(wb, folha(
       ["Data", "Recibo", "Nº sócio", "Sócio", "Referente a", "Forma", "Conta", "Subtotal", "Desconto", "Total", "Anulado", "Motivo", "Recebido por"],
@@ -103,4 +104,131 @@ $("cp-fich").onchange = (e)=>{
     }}]);
   };
   leitor.readAsText(f);
+};
+
+/* ---------- importar sócios de uma folha Excel (Administrador) ---------- */
+const COLUNAS_IMPORT = {          // título da coluna (sem acentos, minúsculas) → campo
+  numero: ["n.º", "nº", "n.o", "no", "numero", "n. socio", "nº socio", "numero de socio", "num"],
+  nome: ["nome", "nome completo"],
+  nomeAbreviado: ["nome abreviado", "abreviado"],
+  morada: ["morada", "endereco"],
+  localidade: ["localidade", "cidade"],
+  codigoPostal: ["codigo postal", "cod. postal", "cp"],
+  email: ["email", "e-mail", "correio eletronico"],
+  dataNascimento: ["data nasc.", "data nasc", "data de nascimento", "nascimento"],
+  telemovel: ["telemovel", "tlm", "telemovel/telefone"],
+  telefone: ["telefone", "tel"],
+  nif: ["nif", "contribuinte"],
+  dataEntrada: ["data de inscricao", "data inscricao", "inscricao", "data de entrada", "admissao"],
+  tipo: ["tipo", "tipo de socio"]
+};
+const semAcentos = (t)=> String(t == null ? "" : t).normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/\s+/g, " ").trim();
+/* data do Excel (nº de série, Date ou texto dd/mm/aaaa) → AAAA-MM-DD */
+function dataDeExcel(v){
+  if(v == null || v === "") return "";
+  if(typeof v === "number" && v > 0){ const d = new Date(Date.UTC(1899, 11, 30) + Math.round(v) * 86400000); return d.toISOString().slice(0, 10); }
+  if(v instanceof Date) return new Date(Date.UTC(v.getFullYear(), v.getMonth(), v.getDate())).toISOString().slice(0, 10);
+  const m = String(v).trim().match(/^(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{4})$/);
+  return m ? `${m[3]}-${m[2].padStart(2, "0")}-${m[1].padStart(2, "0")}` : null;
+}
+const limpo = (v)=> String(v == null ? "" : v).replace(/\s+/g, " ").trim();
+
+/* lê a folha e prepara os sócios (sem gravar): {socios:[{dados, privado, linha}], avisos:[], ignorados:[]} */
+function prepararImportacao(linhasFolha, ficheiro){
+  const iCab = linhasFolha.findIndex((r)=>r.some((c)=>semAcentos(c) === "nome"));
+  if(iCab < 0) return {erro: "Não encontrei a linha de títulos (tem de haver uma coluna «NOME»)."};
+  const cab = linhasFolha[iCab].map(semAcentos), col = {};
+  for(const [campo, nomes] of Object.entries(COLUNAS_IMPORT)){ const i = cab.findIndex((c)=>nomes.includes(c)); if(i >= 0) col[campo] = i; }
+  const tipos = listas().tiposSocio, socios = [], avisos = [], ignorados = [], usados = new Map();
+  const existentes = new Map(D.socios.filter((s)=>s.numero != null).map((s)=>[String(s.numero), s]));
+  const nomesExistentes = new Map(D.socios.map((s)=>[semAcentos(s.nome), s])), nomesFolha = new Map();
+  const val = (r, c)=> col[c] == null ? "" : r[col[c]];
+  linhasFolha.slice(iCab + 1).forEach((r, k)=>{
+    const linha = iCab + k + 2;
+    const nome = limpo(val(r, "nome"));
+    if(!nome){ if(r.some((c)=>limpo(c))) ignorados.push(`Linha ${linha}: sem nome`); return; }
+    const obs = [];
+    // o mesmo nome completo já está na app (ou repetido na folha): não importa, para não duplicar
+    const chaveNome = semAcentos(nome);
+    if(nomesExistentes.has(chaveNome)){ const o = nomesExistentes.get(chaveNome); ignorados.push(`Linha ${linha}: ${nome} — já existe na app (${numTxt(o)})`); return; }
+    if(nomesFolha.has(chaveNome)){ ignorados.push(`Linha ${linha}: ${nome} — nome repetido na folha (linha ${nomesFolha.get(chaveNome)})`); return; }
+    // nº (inteiro, com letra, ou um texto como «FUNDADOR» → sem nº; se for um tipo de sócio, fica esse tipo)
+    const numBruto = limpo(val(r, "numero"));
+    let numero = lerNumero(numBruto), tipo = limpo(val(r, "tipo"));
+    if(numero === undefined){
+      const t = tipos.find((x)=>semAcentos(x) === semAcentos(numBruto));
+      if(t) tipo = t; else obs.push("Nº na lista: " + numBruto);
+      numero = null;
+    }
+    if(numero != null){
+      const k2 = String(numero);
+      if(existentes.has(k2)){ ignorados.push(`Linha ${linha}: ${nome} — o nº ${k2} já existe na app (${existentes.get(k2).nome})`); return; }
+      if(usados.has(k2)){ ignorados.push(`Linha ${linha}: ${nome} — nº ${k2} repetido na folha (linha ${usados.get(k2)})`); return; }
+      usados.set(k2, linha);
+    }
+    nomesFolha.set(chaveNome, linha);
+    tipo = tipos.find((x)=>semAcentos(x) === semAcentos(tipo)) || "Efetivo";
+    // código postal
+    const cpBruto = limpo(val(r, "codigoPostal")), cp = cpNormalizar(cpBruto.replace(/\s/g, ""));
+    if(cpBruto && cp === null){ obs.push("Código postal na lista: " + cpBruto); avisos.push(`Linha ${linha}: ${nome} — código postal «${cpBruto}» inválido (ficou vazio)`); }
+    // email
+    const emBruto = limpo(val(r, "email"));
+    const email = emBruto && emailValido(emBruto) && !/\s/.test(emBruto) ? emBruto.toLowerCase() : "";
+    if(emBruto && !email){ obs.push("Email na lista: " + emBruto); avisos.push(`Linha ${linha}: ${nome} — email «${emBruto}» inválido (ficou nas observações)`); }
+    // datas
+    const nasc = dataDeExcel(val(r, "dataNascimento")), entrada = dataDeExcel(val(r, "dataEntrada"));
+    if(nasc === null) avisos.push(`Linha ${linha}: ${nome} — data de nascimento «${limpo(val(r, "dataNascimento"))}» não reconhecida`);
+    if(entrada === null) avisos.push(`Linha ${linha}: ${nome} — data de inscrição «${limpo(val(r, "dataEntrada"))}» não reconhecida`);
+    // sócio marcado como falecido na lista (no nome, no email ou no nome abreviado): fica inativo
+    const falecido = /falec/i.test([nome, emBruto, limpo(val(r, "nomeAbreviado"))].join(" "));
+    if(falecido) obs.unshift("Falecido (indicado na lista)");
+    // telemóvel / NIF (se a folha os tiver)
+    const tlm = telNormalizar(limpo(val(r, "telemovel"))), tel = telNormalizar(limpo(val(r, "telefone")));
+    if(tlm === null){ obs.push("Telemóvel na lista: " + limpo(val(r, "telemovel"))); avisos.push(`Linha ${linha}: ${nome} — telemóvel inválido`); }
+    if(tel === null){ obs.push("Telefone na lista: " + limpo(val(r, "telefone"))); avisos.push(`Linha ${linha}: ${nome} — telefone inválido`); }
+    const nifB = limpo(val(r, "nif")).replace(/\s/g, ""), nif = nifB && nifValido(nifB) ? nifB : "";
+    if(nifB && !nif){ obs.push("NIF na lista: " + nifB); avisos.push(`Linha ${linha}: ${nome} — NIF «${nifB}» inválido`); }
+    socios.push({linha, privado: {nif, nib: ""}, dados: {
+      numero, historicoNumeros: [], ativo: !falecido, nome, nomeAbreviado: limpo(val(r, "nomeAbreviado")),
+      dataNascimento: nasc || "", telemovel: tlm || "", telefone: tel || "", email,
+      morada: limpo(val(r, "morada")), codigoPostal: cp || "", localidade: limpo(val(r, "localidade")),
+      tipo, periodicidade: "Anual", perHist: [{ano: 0, per: "Anual"}], pagoAte: "", inatividade: [],
+      dataEntrada: entrada || "", dataSaida: "", observacoes: obs.join("\n"), nifMasc: nifMascara(nif), nibMasc: "", agregado: [],
+      importado: {ficheiro, linha, em: Date.now()}}});
+  });
+  return {socios, avisos, ignorados, colunas: Object.keys(col)};
+}
+$("imp-escolher").onclick = ()=>{ if(eAdmin()) $("imp-fich").click(); };
+$("imp-fich").onchange = (e)=>{
+  const f = e.target.files[0]; e.target.value = ""; if(!f) return;
+  toast("A ler a folha…");
+  Promise.all([carregarScript(XLSX_URL), f.arrayBuffer()]).then(([, buf])=>{
+    const wb = XLSX.read(buf), ws = wb.Sheets[wb.SheetNames[0]];
+    const linhas = XLSX.utils.sheet_to_json(ws, {header: 1, raw: true, defval: ""});
+    const r = prepararImportacao(linhas, f.name);
+    if(r.erro){ aviso(r.erro, "Importar sócios"); return; }
+    const inativos = r.socios.filter((x)=>!x.dados.ativo);
+    const n = r.socios.length, semNum = r.socios.filter((x)=>x.dados.numero == null), comLetra = r.socios.filter((x)=>typeof x.dados.numero === "string");
+    const porTipo = new Map(); r.socios.forEach((x)=>porTipo.set(x.dados.tipo, (porTipo.get(x.dados.tipo) || 0) + 1));
+    const lista = (tit, arr)=> arr.length ? `<div class="secao">${tit} (${arr.length})</div><div class="pequeno" style="max-height:160px;overflow-y:auto;background:#FAFBFC;border:1px solid var(--linha);border-radius:8px;padding:6px 10px">${arr.map(esc).join("<br>")}</div>` : "";
+    const exemplo = r.socios.slice(0, 5).map((x)=>`<tr><td class="num">${x.dados.numero || "—"}</td><td>${esc(x.dados.nome)}</td><td>${esc(x.dados.nomeAbreviado)}</td><td>${esc(x.dados.localidade)}</td><td>${dataPT(x.dados.dataNascimento)}</td></tr>`);
+    janela("Importar sócios", `<p>Folha <b>${esc(f.name)}</b>: <b>${n}</b> sócio(s) para importar.</p>
+      <p class="pequeno">Colunas reconhecidas: ${r.colunas.map(esc).join(", ")}.<br>
+        Por tipo: ${[...porTipo.entries()].map(([t, k])=>`${esc(t)} ${k}`).join(" · ")} · sem nº: ${semNum.length} · nº com letra: ${comLetra.map((x)=>x.dados.numero).join(", ") || "nenhum"}.<br>
+        ${inativos.length ? `<b>Inativos (falecidos segundo a lista): ${inativos.map((x)=>`${x.dados.numero || "—"} ${esc(x.dados.nome)}`).join("; ")}</b>.<br>` : ""}
+        Os restantes ficam <b>ativos</b>; todos com quota <b>Anual</b>, sem data de inscrição e sem «quotas pagas até» (as quotas só são calculadas depois de preencher a data de inscrição).</p>
+      <div class="rolar">${tabela([{t: "Nº", num: true}, {t: "Nome"}, {t: "Abreviado"}, {t: "Localidade"}, {t: "Nascimento"}], exemplo, "")}</div>
+      ${lista("Avisos (os dados com erro ficam nas observações da ficha)", r.avisos)}${lista("Não importados", r.ignorados)}
+      <div class="aviso" id="imp-erro" style="display:none"></div>`,
+    [{texto: "Cancelar", classe: "sec", id: "imp-cancelar"}, ...(n ? [{texto: `Importar ${n} sócios`, id: "imp-ok", classe: "verde", acao: ()=>{
+      const ops = [];
+      for(const x of r.socios){
+        const id = novoIdSocio();
+        ops.push({tipo: "set", col: "socios", id, dados: {...x.dados, ...carimbo(true)}});
+        ops.push({tipo: "set", col: "sociosPrivado", id, dados: x.privado});
+      }
+      gravar(ops).then(()=>toast(`${n} sócios importados.`)).catch(()=>{});
+      toast("A importar…");
+    }}] : [])], true);
+  }).catch(()=>aviso("Não foi possível ler esta folha. Confirme que é um ficheiro Excel (.xlsx) e que o aparelho tem internet na primeira vez.", "Importar sócios"));
 };

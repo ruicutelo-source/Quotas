@@ -261,6 +261,7 @@ function htmlQuotasSocio(s){
   if(!s) return `<div class="nota">As quotas aparecem depois de gravar a ficha.</div>`;
   const sit = situacao(s), pags = (Idx.pagSocio.get(s.id) || []).slice(0, 6);
   const estado = tipoIsento(s.tipo) ? `<span class="chip">Isento (${esc(s.tipo)})</span>`
+    : !s.dataEntrada ? `<span class="chip">Sem data de inscrição</span> <span class="pequeno">as quotas só são calculadas depois de a preencher</span>`
     : sit.divida ? `<span class="chip verm">Em dívida: ${eur(sit.divida)}</span> <span class="pequeno">${esc(resumoFalta(sit.falta))}</span>`
     : `<span class="chip verde">Quotas em dia</span>`;
   return `<div class="linha quebra" style="justify-content:space-between">${estado}

@@ -78,7 +78,7 @@ function mapaFicha(id){
   const pags = Idx.pagSocio.get(id) || [];
   imprimir("Ficha de sócio", `${numTxt(s)} · ${s.nome}`, `
     <div class="m-duas">
-      <table class="m-ficha">${campo("Nº de sócio", s.numero)}${campo("Nome", `<b>${esc(s.nome)}</b>`)}${campo("Data de nascimento", dataPT(s.dataNascimento))}
+      <table class="m-ficha">${campo("Nº de sócio", s.numero)}${campo("Nome", `<b>${esc(s.nome)}</b>`)}${campo("Nome abreviado", esc(s.nomeAbreviado))}${campo("Data de nascimento", dataPT(s.dataNascimento))}
         ${campo("NIF", nif)}${campo("NIB / IBAN", nib)}${campo("Telemóvel", esc(s.telemovel))}${campo("Telefone", esc(s.telefone))}${campo("Email", esc(s.email))}</table>
       <table class="m-ficha">${campo("Morada", esc(s.morada))}${campo("Código postal", esc([s.codigoPostal, s.localidade].filter(Boolean).join(" ")))}
         ${campo("Estado", socioAtivo(s) ? "Ativo" : "Inativo")}${campo("Tipo de sócio", esc(s.tipo))}${campo("Quota", esc(s.periodicidade))}

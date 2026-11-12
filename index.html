@@ -258,6 +258,14 @@
         <button class="bt sec" id="cp-json">Descarregar cópia</button>
       </div>
     </div>
+    <div class="cartao" id="cp-importar-cartao" style="margin-top:16px">
+      <h3 style="margin-top:0">Importar sócios do Excel</h3>
+      <div class="nota">Lê uma folha .xlsx com uma linha de títulos (N.º, NOME, MORADA, LOCALIDADE, CÓDIGO POSTAL, EMAIL, Nome Abreviado, Data Nasc.,
+        e opcionalmente Telemóvel, NIF, Data de inscrição…). Mostra primeiro o que vai importar e os avisos; só grava quando confirmar.
+        Sócios com um nº ou um nome completo que já exista na app não são importados.</div>
+      <input type="file" id="imp-fich" accept=".xlsx,.xls" style="display:none">
+      <button class="bt" id="imp-escolher">Escolher folha Excel…</button>
+    </div>
     <div class="cartao" id="cp-restaurar-cartao" style="margin-top:16px;border-color:var(--verm);display:none">
       <h3 style="margin-top:0;color:var(--verm)">Restaurar uma cópia</h3>
       <div class="nota">Substitui <b>todos</b> os dados atuais pelos da cópia. Antes de restaurar, a app descarrega uma cópia do estado atual.</div>

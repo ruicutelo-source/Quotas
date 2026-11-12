@@ -6,7 +6,22 @@ const RELACOES = ["Cônjuge", "Filho(a)", "Pai/Mãe", "Irmão(ã)", "Neto(a)", "
 const RELACAO_INVERSA = {"Cônjuge": "Cônjuge", "Filho(a)": "Pai/Mãe", "Pai/Mãe": "Filho(a)", "Irmão(ã)": "Irmão(ã)",
                          "Neto(a)": "Avô/Avó", "Avô/Avó": "Neto(a)", "Outro": "Outro"};
 const filtroSoc = {estado: "ativos"};
-const porNumero = (a, b)=> (a.numero || 1e9) - (b.numero || 1e9) || porTexto(a.nome, b.nome);
+/* nº de sócio: inteiro (12) ou com letra (203A); ordena 203 < 203A < 204; sem nº vai para o fim */
+function chaveNumero(n){
+  if(n == null || n === "") return [1e9, ""];
+  const m = String(n).match(/^(\d+)([A-Z]*)$/);
+  return m ? [Number(m[1]), m[2]] : [1e9 - 1, String(n)];
+}
+const porNumero = (a, b)=>{ const x = chaveNumero(a.numero), y = chaveNumero(b.numero);
+  return x[0] - y[0] || x[1].localeCompare(y[1]) || porTexto(a.nome, b.nome); };
+/* lê o nº escrito: "12" → 12, "203a" → "203A"; vazio → null; inválido → undefined */
+function lerNumero(txt){
+  const t = String(txt == null ? "" : txt).trim().toUpperCase();
+  if(t === "") return null;
+  if(/^\d{1,6}$/.test(t) && Number(t) > 0) return Number(t);
+  if(/^\d{1,6}[A-Z]$/.test(t) && parseInt(t, 10) > 0) return t;
+  return undefined;
+}
 
 /* ---------- lista ---------- */
 RENDER.socios = function(){
@@ -61,8 +76,8 @@ $("soc-renumerar").onclick = ()=>renumerar();
 
 /* ---------- ficha ---------- */
 let F = null;     // ficha aberta: {id, agregado, avisoNif}
-function proximoNumero(){ return D.socios.reduce((m, s)=>Math.max(m, Number(s.numero) || 0), 0) + 1; }
-const donoDoNumero = (n, exceto)=> D.socios.find((s)=>s.numero === n && s.id !== exceto);
+function proximoNumero(){ return D.socios.reduce((m, s)=>Math.max(m, parseInt(s.numero, 10) || 0), 0) + 1; }
+const donoDoNumero = (n, exceto)=> D.socios.find((s)=>s.numero != null && String(s.numero) === String(n) && s.id !== exceto);
 
 function abrirSocio(id){
   const s = id ? Idx.socio.get(id) : null;
@@ -85,10 +100,11 @@ function abrirSocio(id){
   const corpo = `
     <div class="secao">Identificação</div>
     <div class="ficha-grid">
-      <div><label class="campo">Nº de sócio</label><input type="number" id="f-numero" min="1" step="1"
+      <div><label class="campo">Nº de sócio</label><input type="text" id="f-numero" maxlength="7" autocomplete="off"
         value="${novo ? proximoNumero() : (s.numero || "")}" placeholder="sem nº" ${podeNum ? "" : "disabled"}></div>
       <div class="s2"><label class="campo">Nome completo *</label><input type="text" id="f-nome" value="${v("nome")}" ${dis}></div>
       <div><label class="campo">Data de nascimento</label><input type="date" id="f-nasc" value="${v("dataNascimento")}" ${dis}></div>
+      <div class="s2"><label class="campo">Nome abreviado</label><input type="text" id="f-abrev" value="${v("nomeAbreviado")}" placeholder="ex.: Rui Pinto" ${dis}></div>
       <div><label class="campo">NIF</label>${nif}</div>
       <div class="s2"><label class="campo">NIB / IBAN</label>${nib}</div>
     </div>
@@ -107,7 +123,7 @@ function abrirSocio(id){
       <div><label class="campo">Estado</label><select id="f-estado" ${dis}>${opt(["Ativo", "Inativo"], s && !socioAtivo(s) ? "Inativo" : "Ativo")}</select></div>
       <div><label class="campo">Tipo de sócio *</label><select id="f-tipo" ${dis}>${opt(tipos, s ? s.tipo : tipos[0])}</select></div>
       <div><label class="campo">Quota *</label><select id="f-period" ${dis}>${opt(["Mensal", "Anual"], s ? s.periodicidade : "Anual")}</select></div>
-      <div><label class="campo">Data de inscrição *</label><input type="date" id="f-entrada" value="${v("dataEntrada", hojeISO())}" ${dis}></div>
+      <div><label class="campo">Data de inscrição</label><input type="date" id="f-entrada" value="${v("dataEntrada", hojeISO())}" ${dis}></div>
       <div><label class="campo">Data de saída</label><input type="date" id="f-saida" value="${v("dataSaida")}" ${dis}></div>
       <div><label class="campo">Quotas pagas até (antes da app)</label><input type="month" id="f-pagoate" value="${v("pagoAte")}" ${dis}></div>
     </div>
@@ -173,12 +189,12 @@ function gravarSocio(){
   if(!novo && !antigo){ fecharJanela(); return; }
   const ativo = $("f-estado").value === "Ativo";
 
-  // nº de sócio: vazio só é permitido a quem está inativo; um ativo sem nº recebe o seguinte
-  const numTxtCampo = $("f-numero").value.trim();
-  let numero = numTxtCampo === "" ? null : Number(numTxtCampo);
-  if(numero !== null && !(Number.isInteger(numero) && numero > 0)){ erros.push("Nº de sócio inválido."); marcar("f-numero"); }
+  // nº de sócio (pode ter letra, ex.: 203A)
+  let numero = lerNumero($("f-numero").value);
+  if(numero === undefined){ erros.push("Nº de sócio inválido (ex.: 12 ou 203A)."); marcar("f-numero"); }
   else{
-    if(numero === null && ativo) numero = proximoNumero();
+    // só um sócio novo ou reativado recebe logo o nº seguinte (os que já estão sem nº esperam pela renumeração)
+    if(numero === null && ativo && (novo || !socioAtivo(antigo))) numero = proximoNumero();
     const dono = numero !== null && donoDoNumero(numero, id);
     if(dono){ erros.push(`O nº ${numero} já pertence a ${dono.nome}.`); marcar("f-numero"); }
   }
@@ -196,7 +212,6 @@ function gravarSocio(){
   const cp = cpNormalizar($("f-cp").value);
   if(cp === null){ erros.push("Código postal inválido (formato 0000-000)."); marcar("f-cp"); }
   const entrada = $("f-entrada").value, saida = $("f-saida").value, nasc = $("f-nasc").value;
-  if(!entrada){ erros.push("Falta a data de inscrição."); marcar("f-entrada"); }
   if(saida && entrada && saida < entrada){ erros.push("A data de saída é anterior à de inscrição."); marcar("f-saida"); }
   if(nasc && nasc > hojeISO()){ erros.push("A data de nascimento está no futuro."); marcar("f-nasc"); }
   const caixa = $("f-erros");
@@ -234,7 +249,7 @@ function gravarSocio(){
   let historico = antigo ? (antigo.historicoNumeros || []).slice() : [];
   if(antigo && antigo.numero && antigo.numero !== numero) historico.push({numero: antigo.numero, ate: hojeISO()});
   const dados = {
-    numero, historicoNumeros: historico, ativo, nome, dataNascimento: nasc, telemovel, telefone, email,
+    numero, historicoNumeros: historico, ativo, nome, nomeAbreviado: $("f-abrev").value.trim().replace(/\s+/g, " "), dataNascimento: nasc, telemovel, telefone, email,
     morada: $("f-morada").value.trim(), codigoPostal: cp, localidade: $("f-localidade").value.trim(),
     tipo: $("f-tipo").value, periodicidade: perNova, perHist, pagoAte, inatividade, dataEntrada: entrada, dataSaida: saida,
     observacoes: $("f-obs").value.trim(), nifMasc: nifMascara(nif), nibMasc: ibanMascara(nib),
@@ -286,6 +301,12 @@ function planoRenumeracao(){
 }
 function renumerar(){
   if(!eAdmin()) return;
+  const semDataAtivos = D.socios.filter((s)=>socioAtivo(s) && !s.dataEntrada);
+  if(semDataAtivos.length){
+    aviso(`Há ${semDataAtivos.length} sócio(s) ativo(s) sem data de inscrição (por exemplo: ${semDataAtivos.slice(0, 3).map((s)=>s.nome).join(", ")}).\n\n` +
+      "A renumeração ordena os sócios pela data de inscrição; sem ela os números ficavam trocados. Preencha as datas primeiro.", "Renumerar sócios");
+    return;
+  }
   const plano = planoRenumeracao(), muda = plano.filter((p)=>p.s.numero !== p.novo);
   const linhas = plano.map((p)=>`<tr class="${p.s.numero !== p.novo ? "muda" : ""}"><td>${esc(p.s.nome)}</td><td>${dataPT(p.s.dataEntrada)}</td>
     <td class="num">${p.s.numero || "—"}</td><td class="num"><b>${p.novo || "sem nº"}</b></td></tr>`);
