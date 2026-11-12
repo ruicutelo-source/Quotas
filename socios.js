@@ -12,7 +12,12 @@ function chaveNumero(n){
   const m = String(n).match(/^(\d+)([A-Z]*)$/);
   return m ? [Number(m[1]), m[2]] : [1e9 - 1, String(n)];
 }
-const porNumero = (a, b)=>{ const x = chaveNumero(a.numero), y = chaveNumero(b.numero);
+/* fundadores sem nº ficam em destaque no topo (pela ordem da lista importada); outros sem nº vão para o fim */
+const grupoOrdem = (s)=> s.numero == null && s.tipo === "Fundador" ? 0 : s.numero == null ? 2 : 1;
+const porNumero = (a, b)=>{
+  const g = grupoOrdem(a) - grupoOrdem(b); if(g) return g;
+  if(grupoOrdem(a) === 0) return ((a.importado && a.importado.linha) || 1e9) - ((b.importado && b.importado.linha) || 1e9) || porTexto(a.nome, b.nome);
+  const x = chaveNumero(a.numero), y = chaveNumero(b.numero);
   return x[0] - y[0] || x[1].localeCompare(y[1]) || porTexto(a.nome, b.nome); };
 /* lê o nº escrito: "12" → 12, "203a" → "203A"; vazio → null; inválido → undefined */
 function lerNumero(txt){
