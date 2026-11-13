@@ -262,9 +262,17 @@
       <h3 style="margin-top:0">Importar sócios do Excel</h3>
       <div class="nota">Lê uma folha .xlsx com uma linha de títulos (N.º, NOME, MORADA, LOCALIDADE, CÓDIGO POSTAL, EMAIL, Nome Abreviado, Data Nasc.,
         e opcionalmente Telemóvel, NIF, Data de inscrição…). Mostra primeiro o que vai importar e os avisos; só grava quando confirmar.
-        Sócios com um nº ou um nome completo que já exista na app não são importados.</div>
+        Sócios que já existem (mesmo nome completo ou nº) são <b>atualizados</b>: só muda o que é diferente e não está vazio na folha;
+        o nº só é dado a quem ainda não tem (um nº existente muda na ficha ou na renumeração).</div>
       <input type="file" id="imp-fich" accept=".xlsx,.xls" style="display:none">
       <button class="bt" id="imp-escolher">Escolher folha Excel…</button>
+    </div>
+    <div class="cartao" id="cp-fotos-cartao" style="margin-top:16px">
+      <h3 style="margin-top:0">Importar fotos dos sócios</h3>
+      <div class="nota">Escolha várias fotos de uma vez (no PC: abra a pasta e carregue em Ctrl+A). Cada foto é ligada ao sócio pelo nome do ficheiro:
+        o nº de sócio (<b>119.jpg</b>, <b>203A.jpg</b>) ou o nome. Mostra primeiro o que encontrou; só grava quando confirmar.</div>
+      <input type="file" id="fot-fich" accept="image/*" multiple style="display:none">
+      <button class="bt" id="fot-escolher">Escolher fotos…</button>
     </div>
     <div class="cartao" id="cp-restaurar-cartao" style="margin-top:16px;border-color:var(--verm);display:none">
       <h3 style="margin-top:0;color:var(--verm)">Restaurar uma cópia</h3>

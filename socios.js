@@ -359,7 +359,7 @@ function renumerar(){
 const iniciais = (nome)=>{ const p = String(nome || "").trim().split(/\s+/).filter(Boolean); return p.length ? (p[0][0] + (p.length > 1 ? p[p.length - 1][0] : "")).toUpperCase() : "?"; };
 const avatar = (s)=> s.fotoMini ? `<img class="ava" src="${esc(s.fotoMini)}" alt="" loading="lazy">` : `<span class="ava">${esc(iniciais(s.nome))}</span>`;
 function mostrarFoto(img){ const c = $("f-foto"); if(c) c.innerHTML = `<img src="${esc(img)}" alt="Foto do sócio">`; }
-/* recorta e reduz: foto da ficha 360×480 (retrato, ao centro) e miniatura 96×96 (parte de cima, onde costuma estar a cara) */
+/* recorta e reduz: foto da ficha até 360×480 (retrato, ao centro; uma foto pequena não é aumentada) e miniatura 96×96 (parte de cima, onde costuma estar a cara) */
 function prepararFoto(ficheiro){
   const abrir = window.createImageBitmap ? createImageBitmap(ficheiro, {imageOrientation: "from-image"}).catch(()=>abrirImagem(ficheiro)) : abrirImagem(ficheiro);
   return abrir.then((im)=>{
@@ -368,7 +368,8 @@ function prepararFoto(ficheiro){
       const ctx = cv.getContext("2d"); ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, w, h); ctx.drawImage(im, ox, oy, cw, ch, 0, 0, w, h); return cv.toDataURL("image/jpeg", q); };
     // retrato 3:4
     let cw = W, ch = W * 4 / 3; if(ch > H){ ch = H; cw = H * 3 / 4; }
-    const img = corte(cw, ch, (W - cw) / 2, (H - ch) / 2, 360, 480, 0.82);
+    const lw = Math.min(360, Math.round(cw));            // nunca aumenta uma foto pequena
+    const img = corte(cw, ch, (W - cw) / 2, (H - ch) / 2, lw, Math.round(lw * 4 / 3), 0.85);
     // quadrado para a miniatura
     const l = Math.min(W, H), oy = H > W ? (H - l) * 0.3 : 0;
     const mini = corte(l, l, (W - l) / 2, oy, 96, 96, 0.72);
