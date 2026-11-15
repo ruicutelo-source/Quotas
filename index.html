@@ -1,0 +1,354 @@
+<!doctype html>
+<html lang="pt-PT">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Quotas</title>
+<meta name="theme-color" content="#1F3864">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="stylesheet" href="estilo.css">
+</head>
+<body>
+<header>
+  <div class="marca"><img id="hdr-logo" alt="" style="display:none"><h1 id="hdr-tit">Quotas</h1></div>
+  <div class="sub"><div id="hdr-user"></div><div id="hdr-perfil"></div></div>
+</header>
+
+<main>
+<!-- ======================= INÍCIO ======================= -->
+<section class="ecra" id="ecra-inicio">
+  <h2 style="margin-top:6px">Sócios</h2>
+  <div class="grelha g4">
+    <div class="cartao kpi"><div class="rot">Sócios ativos</div><div class="val azul" id="ini-ativos"></div></div>
+    <div class="cartao kpi"><div class="rot" id="ini-rot-novos">Novos este ano</div><div class="val verde" id="ini-novos"></div></div>
+    <div class="cartao kpi"><div class="rot" id="ini-rot-saidas">Saídas este ano</div><div class="val verm" id="ini-saidas"></div></div>
+    <div class="cartao kpi"><div class="rot">Total registados</div><div class="val azul" id="ini-total"></div></div>
+  </div>
+  <h2>Quotas</h2>
+  <div class="grelha g4">
+    <div class="cartao kpi"><div class="rot">Recebido este mês</div><div class="val verde" id="ini-rec-mes"></div></div>
+    <div class="cartao kpi"><div class="rot" id="ini-rot-rec-ano">Recebido este ano</div><div class="val verde" id="ini-rec-ano"></div></div>
+    <div class="cartao kpi clic" id="ini-div-cartao"><div class="rot">Em dívida</div><div class="val verm" id="ini-divida"></div></div>
+    <div class="cartao kpi clic" id="ini-ndiv-cartao"><div class="rot">Sócios com quotas em atraso</div><div class="val verm" id="ini-ndiv"></div></div>
+  </div>
+  <div class="grelha g3" style="margin-top:12px">
+    <div class="bloco"><div class="tit navy"><span>ATIVOS POR TIPO</span></div><div id="ini-tipos"></div></div>
+    <div class="bloco"><div class="tit navy"><span>ATIVOS POR PERIODICIDADE</span></div><div id="ini-period"></div></div>
+    <div class="bloco"><div class="tit verde"><span>ANIVERSÁRIOS ESTE MÊS</span></div><div id="ini-aniv"></div></div>
+  </div>
+</section>
+
+<!-- ======================= SÓCIOS ======================= -->
+<section class="ecra" id="ecra-socios">
+  <div class="barra">
+    <input type="search" id="soc-pesq" placeholder="Pesquisar nome, nº, telemóvel, email, localidade…">
+    <button class="bt sec" id="soc-imprimir">Imprimir</button>
+    <button class="bt sec" id="soc-renumerar">Renumerar</button>
+    <button class="bt" id="soc-novo">+ Novo sócio</button>
+  </div>
+  <div class="linha quebra" style="margin-bottom:8px">
+    <div class="seletor" id="soc-estado">
+      <button data-v="ativos" class="ativo">Ativos</button><button data-v="inativos">Inativos</button><button data-v="todos">Todos</button>
+    </div>
+    <select id="soc-tipo" style="width:auto;min-width:160px"></select>
+    <select id="soc-period" style="width:auto;min-width:150px">
+      <option value="">Todas as periodicidades</option><option>Mensal</option><option>Anual</option>
+    </select>
+  </div>
+  <div class="bloco"><div class="tit navy"><span>SÓCIOS</span><span id="soc-n"></span></div>
+    <div class="rolar" id="soc-lista"></div></div>
+</section>
+
+<!-- ======================= QUOTAS ======================= -->
+<section class="ecra" id="ecra-quotas">
+  <div class="linha quebra" style="justify-content:space-between">
+    <div class="abas cresce" id="quotas-abas" style="margin-bottom:0">
+      <button data-aba="divida" class="ativo">Em dívida</button>
+      <button data-aba="quadro">Quadro do ano</button>
+      <button data-aba="pagamentos">Pagamentos</button>
+    </div>
+    <button class="bt verde" id="q-receber">+ Receber pagamento</button>
+  </div>
+  <div style="height:10px"></div>
+
+  <div class="aba ativo" id="aba-q-divida">
+    <div class="barra"><input type="search" id="q-pesq" placeholder="Pesquisar nome ou nº…"><button class="bt sec" id="q-div-imprimir">Imprimir</button></div>
+    <div class="bloco"><div class="tit verm"><span>QUOTAS EM ATRASO</span><span id="q-div-tit"></span></div><div class="rolar" id="q-div-lista"></div></div>
+    <div class="nota">Conta só o que já venceu até ao mês atual. Toque num sócio para abrir a ficha.</div>
+  </div>
+
+  <div class="aba" id="aba-q-quadro">
+    <div class="barra">
+      <button class="bt sec peq" id="q-ano-ant">◀</button><b id="q-ano" style="font-size:18px;min-width:50px;text-align:center"></b><button class="bt sec peq" id="q-ano-seg">▶</button>
+      <select id="q-quadro-estado" style="width:auto"><option value="ativos">Só ativos</option><option value="todos">Todos</option></select>
+      <button class="bt sec" id="q-quadro-imprimir">Imprimir</button>
+    </div>
+    <div class="bloco"><div class="rolar" id="q-quadro"></div></div>
+    <div class="nota"><span class="ok-txt">✓</span> pago · <span class="verm">✗</span> em falta · · ainda não venceu · — não se aplica (isento, inativo, antes da inscrição ou pago antes da app)</div>
+  </div>
+
+  <div class="aba" id="aba-q-pagamentos">
+    <div class="barra"><select id="q-pag-mes" style="width:auto;min-width:180px"></select><button class="bt sec" id="q-pag-imprimir">Imprimir</button></div>
+    <div class="bloco"><div class="tit navy"><span>PAGAMENTOS</span><span id="q-pag-tit"></span></div><div class="rolar" id="q-pag-lista"></div></div>
+    <div class="nota">Toque num pagamento para ver o recibo (PDF), partilhá-lo ou anular. Um pagamento errado é anulado (com motivo), nunca apagado.</div>
+  </div>
+</section>
+
+<!-- ======================= TESOURARIA ======================= -->
+<section class="ecra" id="ecra-tesouraria">
+  <div class="abas" id="tes-abas">
+    <button data-aba="painel" class="ativo">Painel</button>
+    <button data-aba="extrato">Movimentos</button>
+    <button data-aba="porpagar">Por pagar</button>
+    <button data-aba="fornecedores">Fornecedores</button>
+    <button data-aba="contas">Saldos iniciais</button>
+  </div>
+  <div class="linha quebra" id="tes-novos" style="margin:0 0 10px">
+    <button class="bt verde" id="tes-receita">+ Receita</button>
+    <button class="bt verm" id="tes-despesa">+ Despesa</button>
+    <button class="bt sec" id="tes-transf">⇄ Transferência</button>
+  </div>
+
+  <div class="aba ativo" id="aba-t-painel">
+    <div class="grelha g4">
+      <div class="cartao kpi"><div class="rot">Saldo total</div><div class="val azul" id="t-saldo"></div></div>
+      <div class="cartao kpi"><div class="rot">Caixa (dinheiro)</div><div class="val azul" id="t-caixa"></div></div>
+      <div class="cartao kpi"><div class="rot">Banco</div><div class="val azul" id="t-banco"></div></div>
+      <div class="cartao kpi clic" id="t-pp-cartao"><div class="rot">Despesas por pagar</div><div class="val verm" id="t-pp"></div><div class="pequeno" id="t-pp-venc"></div></div>
+    </div>
+    <div class="barra" style="margin-top:12px">
+      <button class="bt sec peq" id="t-ano-ant">◀</button><b id="t-ano" style="font-size:18px;min-width:50px;text-align:center"></b><button class="bt sec peq" id="t-ano-seg">▶</button>
+      <div class="cresce"></div><button class="bt sec" id="t-relatorio">Relatório de contas</button>
+    </div>
+    <div class="bloco"><div class="tit navy"><span>MÊS A MÊS</span></div><div class="rolar" id="t-meses"></div></div>
+    <div class="grelha g2" style="margin-top:12px">
+      <div class="bloco"><div class="tit verde"><span>RECEITAS POR CATEGORIA</span></div><div id="t-cat-rec"></div></div>
+      <div class="bloco"><div class="tit verm"><span>DESPESAS POR CATEGORIA</span></div><div id="t-cat-des"></div></div>
+    </div>
+    <div class="nota" id="t-nota-inicio"></div>
+  </div>
+
+  <div class="aba" id="aba-t-extrato">
+    <div class="barra">
+      <select id="t-ext-per" style="width:auto;min-width:160px"></select>
+      <select id="t-ext-conta" style="width:auto"><option value="">Caixa e Banco</option><option>Caixa</option><option>Banco</option></select>
+      <select id="t-ext-tipo" style="width:auto"><option value="">Todos os tipos</option><option>Quotas</option><option>Receita</option><option>Despesa</option><option>Transferência</option></select>
+      <button class="bt sec" id="t-ext-imprimir">Imprimir</button>
+    </div>
+    <div class="bloco"><div class="tit navy"><span>MOVIMENTOS</span><span id="t-ext-tit"></span></div><div class="rolar" id="t-ext"></div></div>
+    <div class="nota">Escolha uma conta (Caixa ou Banco) para ver o saldo linha a linha. As quotas vêm dos pagamentos registados em Quotas.</div>
+  </div>
+
+  <div class="aba" id="aba-t-porpagar">
+    <div class="bloco"><div class="tit verm"><span>DESPESAS POR PAGAR</span><span id="t-pp-tit"></span></div><div class="rolar" id="t-pp-lista"></div></div>
+    <div class="nota">Uma despesa por pagar só sai do saldo quando for paga.</div>
+  </div>
+
+  <div class="aba" id="aba-t-fornecedores">
+    <div class="barra"><input type="search" id="t-forn-pesq" placeholder="Pesquisar fornecedor…"><button class="bt" id="t-forn-novo">+ Novo fornecedor</button></div>
+    <div class="bloco"><div class="tit navy"><span>FORNECEDORES E ENTIDADES</span></div><div class="rolar" id="t-forn-lista"></div></div>
+  </div>
+
+  <div class="aba" id="aba-t-contas">
+    <div class="cartao" style="max-width:560px">
+      <h3 style="margin-top:0">Saldos no início</h3>
+      <div class="nota">O dinheiro que o clube tinha no dia em que começou a usar a app. Os movimentos anteriores a essa data não contam para o saldo.</div>
+      <label class="campo">Data de início</label><input type="date" id="t-ini-data">
+      <div class="grelha g2" style="gap:10px">
+        <div><label class="campo">Caixa (€)</label><input type="text" id="t-ini-caixa" inputmode="decimal"></div>
+        <div><label class="campo">Banco (€)</label><input type="text" id="t-ini-banco" inputmode="decimal"></div>
+      </div>
+      <button class="bt" id="t-ini-gravar" style="margin-top:12px">Gravar</button>
+      <div class="nota" id="t-ini-so-ler" style="display:none">Só o Administrador pode alterar os saldos iniciais.</div>
+    </div>
+  </div>
+</section>
+
+<!-- ======================= CLUBE ======================= -->
+<section class="ecra" id="ecra-clube">
+  <div class="abas" id="clube-abas">
+    <button data-aba="dados" class="ativo">Dados e valores</button>
+    <button data-aba="cargos">Cargos</button>
+    <button data-aba="listas">Listas</button>
+    <button data-aba="utilizadores" id="aba-utilizadores">Utilizadores</button>
+    <button data-aba="copias">Cópias</button>
+  </div>
+
+  <div class="aba ativo" id="aba-dados">
+    <div class="aviso" id="clb-so-ler" style="display:none">Só o Administrador pode alterar estes dados.</div>
+    <div class="grelha g2">
+      <div class="cartao">
+        <h3 style="margin-top:0">Dados do clube</h3>
+        <label class="campo">Nome</label><input type="text" id="clb-nome">
+        <div class="grelha g2" style="gap:10px">
+          <div><label class="campo">NIF</label><input type="text" id="clb-nif" inputmode="numeric" maxlength="9"></div>
+          <div><label class="campo">Telefone</label><input type="text" id="clb-tel" inputmode="tel"></div>
+        </div>
+        <label class="campo">Email</label><input type="email" id="clb-email">
+        <label class="campo">Morada</label><input type="text" id="clb-morada">
+        <div class="grelha g2" style="gap:10px">
+          <div><label class="campo">Código postal</label><input type="text" id="clb-cp" placeholder="0000-000" maxlength="8"></div>
+          <div><label class="campo">Localidade</label><input type="text" id="clb-local"></div>
+        </div>
+      </div>
+      <div>
+        <div class="cartao">
+          <h3 style="margin-top:0">Valores por ano</h3>
+          <div class="rolar" id="clb-valores"></div>
+          <button class="bt sec peq" id="clb-ano-add" style="margin-top:8px">+ Acrescentar ano</button>
+          <div class="nota">A joia é cobrada uma vez, na inscrição. A quota anual pode ter desconto em relação a 12 mensalidades.
+            Um sócio anual que se inscreve a meio do ano paga os meses que faltam × quota mensal. Mudar os valores de um ano não mexe nos anos anteriores.</div>
+        </div>
+        <div class="cartao" style="margin-top:12px">
+          <h3 style="margin-top:0">Logótipo</h3>
+          <div class="linha quebra">
+            <div class="logo-caixa" id="clb-logo-caixa"><span class="nota">Sem logótipo</span></div>
+            <div>
+              <input type="file" id="clb-logo-fich" accept="image/*" style="display:none">
+              <button class="bt sec peq" id="clb-logo-esc">Escolher imagem</button>
+              <button class="bt sec peq verm-txt" id="clb-logo-tirar">Remover</button>
+              <div class="nota">Aparece no topo da app e, na Fase 3, nos recibos.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="linha" style="justify-content:flex-end;margin-top:12px"><button class="bt" id="clb-gravar">Gravar</button></div>
+    <div class="cartao" id="clb-perigo" style="margin-top:20px;border-color:var(--verm);display:none">
+      <h3 style="margin-top:0;color:var(--verm)">Zona de perigo</h3>
+      <div class="nota">Põe o programa a zeros: apaga <b>todos os sócios, NIF/NIB, pagamentos, cargos, movimentos de tesouraria e fornecedores</b>, e a numeração dos recibos volta ao início.
+        Ficam os dados do clube, os valores, as listas, os saldos iniciais e os utilizadores. Antes de apagar, a app descarrega uma cópia de tudo.</div>
+      <button class="bt verm" id="clb-limpar">Limpar dados</button>
+    </div>
+  </div>
+
+  <div class="aba" id="aba-cargos">
+    <div class="barra"><div class="cresce nota" style="margin:0">Órgãos sociais do clube.</div>
+      <button class="bt" id="cg-novo">+ Novo cargo</button></div>
+    <div class="bloco"><div class="tit navy"><span>ÓRGÃOS SOCIAIS</span></div><div class="rolar" id="cg-lista"></div></div>
+  </div>
+
+  <div class="aba" id="aba-listas">
+    <div class="grelha g2">
+      <div class="bloco"><div class="tit navy"><span>TIPOS DE SÓCIO</span></div><div id="ls-tipos"></div>
+        <div class="linha" style="padding:10px" id="ls-tipos-add"><input type="text" id="ls-tipos-novo" placeholder="Novo tipo de sócio"><button class="bt peq" id="ls-tipos-bt">Adicionar</button></div></div>
+      <div class="bloco"><div class="tit navy"><span>FORMAS DE PAGAMENTO</span></div><div id="ls-formas"></div>
+        <div class="linha" style="padding:10px" id="ls-formas-add"><input type="text" id="ls-formas-novo" placeholder="Nova forma de pagamento"><button class="bt peq" id="ls-formas-bt">Adicionar</button></div></div>
+      <div class="bloco"><div class="tit verde"><span>CATEGORIAS DE RECEITA</span></div><div id="ls-catrec"></div>
+        <div class="linha" style="padding:10px" id="ls-catrec-add"><input type="text" id="ls-catrec-novo" placeholder="Nova categoria de receita"><button class="bt peq" id="ls-catrec-bt">Adicionar</button></div></div>
+      <div class="bloco"><div class="tit verm"><span>CATEGORIAS DE DESPESA</span></div><div id="ls-catdes"></div>
+        <div class="linha" style="padding:10px" id="ls-catdes-add"><input type="text" id="ls-catdes-novo" placeholder="Nova categoria de despesa"><button class="bt peq" id="ls-catdes-bt">Adicionar</button></div></div>
+    </div>
+    <div class="nota">Mudar o nome de um valor muda-o também em todas as fichas e movimentos. Um valor em uso não pode ser apagado.
+      Os tipos marcados como <b>isento</b> não pagam quotas nem joia. As formas marcadas como <b>caixa</b> entram no dinheiro em caixa; as outras entram no banco.</div>
+  </div>
+
+  <div class="aba" id="aba-copias">
+    <div class="grelha g2">
+      <div class="cartao">
+        <h3 style="margin-top:0">Exportar para Excel</h3>
+        <div class="nota">Um ficheiro .xlsx com as folhas Sócios, Pagamentos, Tesouraria, Fornecedores e Contas do ano. Abre no Excel 2016 ou mais recente.</div>
+        <button class="bt" id="cp-excel">Exportar para Excel</button>
+      </div>
+      <div class="cartao" id="cp-json-cartao">
+        <h3 style="margin-top:0">Cópia de segurança completa</h3>
+        <div class="nota">Um ficheiro .json com todos os dados (incluindo NIF e NIB). Guarde-o num sítio seguro: é com ele que se pode restaurar.</div>
+        <button class="bt sec" id="cp-json">Descarregar cópia</button>
+      </div>
+    </div>
+    <div class="cartao" id="cp-importar-cartao" style="margin-top:16px">
+      <h3 style="margin-top:0">Importar sócios do Excel</h3>
+      <div class="nota">Lê uma folha .xlsx com uma linha de títulos (N.º, NOME, MORADA, LOCALIDADE, CÓDIGO POSTAL, EMAIL, Nome Abreviado, Data Nasc.,
+        e opcionalmente Telemóvel, NIF, Data de inscrição…). Mostra primeiro o que vai importar e os avisos; só grava quando confirmar.
+        Sócios que já existem (mesmo nome completo ou nº) são <b>atualizados</b>: só muda o que é diferente e não está vazio na folha;
+        o nº só é dado a quem ainda não tem (um nº existente muda na ficha ou na renumeração).</div>
+      <input type="file" id="imp-fich" accept=".xlsx,.xls" style="display:none">
+      <button class="bt" id="imp-escolher">Escolher folha Excel…</button>
+    </div>
+    <div class="cartao" id="cp-fotos-cartao" style="margin-top:16px">
+      <h3 style="margin-top:0">Importar fotos dos sócios</h3>
+      <div class="nota">Escolha várias fotos de uma vez (no PC: abra a pasta e carregue em Ctrl+A). Cada foto é ligada ao sócio pelo nome do ficheiro:
+        o nº de sócio (<b>119.jpg</b>, <b>203A.jpg</b>) ou o nome. Mostra primeiro o que encontrou; só grava quando confirmar.</div>
+      <input type="file" id="fot-fich" accept="image/*" multiple style="display:none">
+      <button class="bt" id="fot-escolher">Escolher fotos…</button>
+    </div>
+    <div class="cartao" id="cp-restaurar-cartao" style="margin-top:16px;border-color:var(--verm);display:none">
+      <h3 style="margin-top:0;color:var(--verm)">Restaurar uma cópia</h3>
+      <div class="nota">Substitui <b>todos</b> os dados atuais pelos da cópia. Antes de restaurar, a app descarrega uma cópia do estado atual.</div>
+      <input type="file" id="cp-fich" accept=".json,application/json" style="display:none">
+      <button class="bt verm" id="cp-restaurar">Escolher cópia e restaurar…</button>
+    </div>
+  </div>
+
+  <div class="aba" id="aba-utilizadores">
+    <div class="aviso">Antes de adicionar alguém aqui, crie a conta dessa pessoa na consola do Firebase
+      (<b>Authentication → Usuários → Adicionar usuário</b>) com o mesmo email.</div>
+    <div class="barra"><div class="cresce"></div><button class="bt" id="ut-novo">+ Novo utilizador</button></div>
+    <div class="bloco"><div class="tit navy"><span>UTILIZADORES DA APP</span></div><div class="rolar" id="ut-lista"></div></div>
+    <div class="nota"><b>Administrador:</b> tudo. <b>Tesoureiro:</b> sócios (e, nas próximas fases, quotas, recibos e tesouraria).
+      <b>Consulta:</b> só ver, sem NIF nem NIB.</div>
+  </div>
+</section>
+
+<!-- ======================= SESSÃO ======================= -->
+<section class="ecra" id="ecra-sessao">
+  <h2 style="margin-top:6px">Sessão</h2>
+  <div class="cartao"><div class="nota" id="ses-info" style="margin-top:0"></div>
+    <button class="bt sec" id="ses-sair">Terminar sessão</button></div>
+  <h2>Mudar a palavra-passe</h2>
+  <div class="cartao" style="max-width:480px">
+    <label class="campo">Palavra-passe atual</label><input type="password" id="ses-atual" autocomplete="current-password">
+    <label class="campo">Nova palavra-passe (mínimo 8 caracteres)</label><input type="password" id="ses-nova" autocomplete="new-password">
+    <label class="campo">Repetir a nova palavra-passe</label><input type="password" id="ses-nova2" autocomplete="new-password">
+    <button class="bt" id="ses-mudar" style="margin-top:12px">Mudar palavra-passe</button>
+    <div class="nota" id="ses-msg"></div>
+  </div>
+  <div class="nota" style="margin-top:14px" id="ses-versao"></div>
+</section>
+</main>
+
+<nav id="nav"></nav>
+
+<div class="modal-fundo" id="modal"><div class="modal">
+  <h3 id="modal-tit"></h3><div id="modal-corpo"></div>
+  <div class="acoes" id="modal-acoes"></div>
+</div></div>
+<div class="toast" id="toast"></div>
+<div id="impressao"></div>
+<style id="estilo-pagina"></style>
+
+<div id="ecra-login" class="ecra-cheio" style="display:none">
+  <div class="cartao" style="max-width:420px;width:100%;padding:22px">
+    <h2 style="margin-top:0">Quotas</h2>
+    <div class="nota">Entre com o seu email e palavra-passe.</div>
+    <input type="email" id="login-email" placeholder="Email" autocomplete="username" style="margin-top:10px">
+    <input type="password" id="login-pass" placeholder="Palavra-passe" autocomplete="current-password" style="margin-top:10px">
+    <button class="bt" id="login-entrar" style="width:100%;margin-top:14px">Entrar</button>
+    <div class="nota verm" id="login-erro"></div>
+  </div>
+</div>
+
+<div id="ecra-semacesso" class="ecra-cheio" style="display:none">
+  <div class="cartao" style="max-width:440px;width:100%;padding:22px">
+    <h2 style="margin-top:0">Sem acesso</h2>
+    <p id="semacesso-txt"></p>
+    <button class="bt sec" id="semacesso-sair" style="width:100%">Terminar sessão</button>
+  </div>
+</div>
+
+<script src="validar.js"></script>
+<script src="nucleo.js"></script>
+<script src="inicio.js"></script>
+<script src="socios.js"></script>
+<script src="quotas.js"></script>
+<script src="recibos.js"></script>
+<script src="mapas.js"></script>
+<script src="tesouraria.js"></script>
+<script src="copias.js"></script>
+<script src="clube.js"></script>
+<script src="sessao.js"></script>
+<script>arrancar();</script>
+</body>
+</html>
