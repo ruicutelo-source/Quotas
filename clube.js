@@ -29,7 +29,7 @@ function desenharDados(){
   for(const [el, k] of CAMPOS_CLUBE){ $(el).value = c[k] || ""; $(el).disabled = !pode; }
   // valores por ano (a versão 1 tinha só um valor: passa a ser o do ano atual)
   valoresEdit = c.valores ? JSON.parse(JSON.stringify(c.valores))
-    : {[hojeISO().slice(0, 4)]: {joia: c.joia || 0, mensal: c.quotaMensal || 0, anual: c.quotaAnual || 0}};
+    : {[hojeISO().slice(0, 4)]: {joia: c.joia || 0, mensal: c.quotaMensal || 0}};
   desenharValores();
   logoEdit = c.logo || "";
   mostrarLogo();
@@ -38,15 +38,15 @@ function desenharValores(){
   const pode = eAdmin(), anos = Object.keys(valoresEdit).sort();
   $("clb-ano-add").style.display = pode ? "" : "none";
   const inp = (ano, k)=>`<input type="text" inputmode="decimal" id="val-${ano}-${k}" value="${eurCampo(valoresEdit[ano][k])}" ${pode ? "" : "disabled"} style="min-width:80px">`;
-  $("clb-valores").innerHTML = `<table><thead><tr><th>Ano</th><th>Joia (€)</th><th>Mensal (€)</th><th>Anual (€)</th></tr></thead><tbody>
-    ${anos.map((a)=>`<tr><td><b>${a}</b></td><td>${inp(a, "joia")}</td><td>${inp(a, "mensal")}</td><td>${inp(a, "anual")}</td></tr>`).join("")}</tbody></table>`;
+  $("clb-valores").innerHTML = `<table><thead><tr><th>Ano</th><th>Joia (€)</th><th>Quota mensal (€)</th></tr></thead><tbody>
+    ${anos.map((a)=>`<tr><td><b>${a}</b></td><td>${inp(a, "joia")}</td><td>${inp(a, "mensal")}</td></tr>`).join("")}</tbody></table>`;
 }
 /* lê a tabela de valores (devolve null e marca os campos se algum valor for inválido) */
 function lerValores(){
   let ok = true; const v = {};
   for(const ano of Object.keys(valoresEdit)){
     v[ano] = {};
-    for(const k of ["joia", "mensal", "anual"]){
+    for(const k of ["joia", "mensal"]){
       const el = $(`val-${ano}-${k}`), c = centimosDe(el.value);
       if(c === null){ el.classList.add("erro-campo"); ok = false; } else { el.classList.remove("erro-campo"); v[ano][k] = c; }
     }
@@ -56,7 +56,7 @@ function lerValores(){
 $("clb-ano-add").onclick = ()=>{
   const atual = lerValores() || valoresEdit, anos = Object.keys(atual).sort();
   const ultimo = anos[anos.length - 1], novo = String(Number(ultimo || hojeISO().slice(0, 4)) + 1);
-  valoresEdit = {...atual, [novo]: {...(atual[ultimo] || {joia: 0, mensal: 0, anual: 0})}};
+  valoresEdit = {...atual, [novo]: {...(atual[ultimo] || {joia: 0, mensal: 0})}};
   desenharValores(); toast(`Ano ${novo} acrescentado. Ajuste os valores e carregue em Gravar.`);
 };
 function mostrarLogo(){

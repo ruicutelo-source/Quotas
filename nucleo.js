@@ -13,7 +13,7 @@ const FIREBASE_CONFIG = {
   messagingSenderId: "1042881769887",
   appId: "1:1042881769887:web:6b3796aa2b52ceae078daa"
 };
-const VERSAO_APP = "4.4";
+const VERSAO_APP = "5.0";
 
 /* Administrador principal: tem sempre acesso total, mesmo sem ficha em Utilizadores.
    Tem de ser igual ao email escrito nas regras do Firestore. */
@@ -25,17 +25,18 @@ const PERFIS = ["Administrador", "Tesoureiro", "Consulta"];
 /* ---------------------------------------------------------------------
    DADOS (coleções na base de dados) — valores em euros guardados em CÊNTIMOS
    config/clube:        {nome, nif, telefone, email, morada, codigoPostal, localidade, logo,
-                         valores:{"2026": {joia, mensal, anual}, ...}}   (joia/quotaMensal/quotaAnual: versão 1, só leitura)
+                         valores:{"2026": {joia, mensal}, ...}}   (joia/quotaMensal: versão 1, só leitura; «anual» das versões 1–4 já não se usa)
    config/listas:       {tiposSocio:[...], tiposIsentos:[...], formasPagamento:[...]}
    cargos/{id}:         {orgao, cargo, socioId, nome, mandato}
    socios/{id}:         {numero (inteiro, texto com letra como "203A", ou null = sem nº), historicoNumeros:[{numero, ate}], ativo, nome, nomeAbreviado, dataNascimento, telemovel, telefone, email, morada, codigoPostal, localidade,
-                         tipo, periodicidade, perHist:[{ano, per}], pagoAte ("AAAA-MM"), inatividade:[{de, ate}],
+                         tipo, pagoAte ("AAAA-MM"), inatividade:[{de, ate}],   (periodicidade/perHist: versões 1–4, já não se usam)
                          dataEntrada, dataSaida, observacoes, nifMasc, nibMasc,
                          agregado:[{id, relacao}], criadoPor, criadoEm, alteradoPor, alteradoEm}
    sociosPrivado/{id}:  {nif, nib}   (só Administrador e Tesoureiro conseguem ler)
    utilizadores/{email}: {nome, perfil, ativo}
-   pagamentos/{id}:     {socioId, numeroSocio, nomeSocio, data, forma, itens:[{tipo, periodo, rot, valor}],
-                         subtotal, desconto, total, obs, anulado:{por, em, motivo}|null, recebidoPorNome,
+   pagamentos/{id}:     {socioId, numeroSocio, nomeSocio, data, forma, itens:[{tipo: Joia|Quota, periodo: "joia"|"AAAA-MM", rot, valor}],
+                         meses, total, obs, anulado:{por, em, motivo}|null, recebidoPorNome,
+                         vinhetas:["2027", ...], vinhetaEntregue:{por, nome, em}|null,   (subtotal/desconto: versões 1–4)
                          recibo:{ano, num, txt:"2026/0001", em}|null, criadoPor, criadoEm}
    movimentos/{id}:     {tipo: Receita|Despesa|Transferência, data, categoria, descricao, valor, conta (Caixa|Banco), contaDestino,
                          entidadeId, entidadeNome, documento, estado (pago|porPagar), prazo, dataPag, obs, anulado, criadoPor, criadoEm}
@@ -57,7 +58,11 @@ function reindexar(){
     Idx.pagSocio.get(p.socioId).push(p);
     if(p.anulado) continue;
     if(!Idx.pagos.has(p.socioId)) Idx.pagos.set(p.socioId, new Set());
-    for(const it of p.itens || []) Idx.pagos.get(p.socioId).add(it.periodo);
+    for(const it of p.itens || []){
+      Idx.pagos.get(p.socioId).add(it.periodo);
+      // pagamentos antigos (até à versão 4) com o ano inteiro («2026»): contam como os 12 meses pagos
+      if(/^\d{4}$/.test(it.periodo)) for(let m = 1; m <= 12; m++) Idx.pagos.get(p.socioId).add(it.periodo + "-" + String(m).padStart(2, "0"));
+    }
   }
   for(const l of Idx.pagSocio.values()) l.sort((a, b)=>String(b.data).localeCompare(String(a.data)) || (b.criadoEm || 0) - (a.criadoEm || 0));
 }
@@ -70,7 +75,7 @@ const LISTAS_INICIAIS = {
   categoriasDespesa: ["Eventos", "Sede e renda", "Água, luz e comunicações", "Material e equipamento", "Seguros", "Despesas bancárias", "Outras despesas"]
 };
 const CLUBE_INICIAL = {nome: "", nif: "", telefone: "", email: "", morada: "", codigoPostal: "", localidade: "",
-                       logo: "", joia: 0, quotaMensal: 0, quotaAnual: 0};
+                       logo: "", joia: 0, quotaMensal: 0};
 const clube = ()=> ({...CLUBE_INICIAL, ...(D.config.find((c)=>c.id === "clube") || {})});
 const listas = ()=>{ const l = D.config.find((c)=>c.id === "listas") || {};
   const r = {}; for(const k of Object.keys(LISTAS_INICIAIS)) r[k] = l[k] || LISTAS_INICIAIS[k];

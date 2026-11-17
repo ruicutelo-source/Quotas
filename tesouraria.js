@@ -17,7 +17,7 @@ function fluxos(){
     if(p.anulado || !contaPeriodo(p.data)) continue;
     const joias = Math.min(p.total, (p.itens || []).filter((i)=>i.tipo === "Joia").reduce((t, i)=>t + i.valor, 0));
     out.push({data: p.data, conta: contaDaForma(p.forma), valor: p.total, tipo: "Quotas", categoria: joias === p.total ? "Joias" : "Quotas",
-      descricao: `${p.nomeSocio} — ${(p.itens || []).map((i)=>i.rot).join(", ")}`, recibo: p.recibo ? p.recibo.txt : "",
+      descricao: `${p.nomeSocio} — ${refPag(p)}`, recibo: p.recibo ? p.recibo.txt : "",
       partes: [["Quotas", p.total - joias], ["Joias", joias]].filter((x)=>x[1]), ref: {col: "pagamentos", id: p.id}, criadoEm: p.criadoEm});
   }
   for(const m of D.movimentos){

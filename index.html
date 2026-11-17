@@ -35,7 +35,7 @@
   </div>
   <div class="grelha g3" style="margin-top:12px">
     <div class="bloco"><div class="tit navy"><span>ATIVOS POR TIPO</span></div><div id="ini-tipos"></div></div>
-    <div class="bloco"><div class="tit navy"><span>ATIVOS POR PERIODICIDADE</span></div><div id="ini-period"></div></div>
+    <div class="bloco clic" id="ini-vin-cartao"><div class="tit navy"><span>VINHETAS POR ENTREGAR</span></div><div id="ini-vin"></div></div>
     <div class="bloco"><div class="tit verde"><span>ANIVERSÁRIOS ESTE MÊS</span></div><div id="ini-aniv"></div></div>
   </div>
 </section>
@@ -53,9 +53,6 @@
       <button data-v="ativos" class="ativo">Ativos</button><button data-v="inativos">Inativos</button><button data-v="todos">Todos</button>
     </div>
     <select id="soc-tipo" style="width:auto;min-width:160px"></select>
-    <select id="soc-period" style="width:auto;min-width:150px">
-      <option value="">Todas as periodicidades</option><option>Mensal</option><option>Anual</option>
-    </select>
   </div>
   <div class="bloco"><div class="tit navy"><span>SÓCIOS</span><span id="soc-n"></span></div>
     <div class="rolar" id="soc-lista"></div></div>
@@ -68,6 +65,7 @@
       <button data-aba="divida" class="ativo">Em dívida</button>
       <button data-aba="quadro">Quadro do ano</button>
       <button data-aba="pagamentos">Pagamentos</button>
+      <button data-aba="vinhetas" id="q-aba-vinhetas">Vinhetas</button>
     </div>
     <button class="bt verde" id="q-receber">+ Receber pagamento</button>
   </div>
@@ -86,13 +84,19 @@
       <button class="bt sec" id="q-quadro-imprimir">Imprimir</button>
     </div>
     <div class="bloco"><div class="rolar" id="q-quadro"></div></div>
-    <div class="nota"><span class="ok-txt">✓</span> pago · <span class="verm">✗</span> em falta · · ainda não venceu · — não se aplica (isento, inativo, antes da inscrição ou pago antes da app)</div>
+    <div class="nota"><span class="ok-txt">✓</span> pago (cinzento: pago antes da app) · <span class="verm">✗</span> em falta · · ainda não venceu · — não se aplica (isento, inativo ou antes da inscrição)</div>
   </div>
 
   <div class="aba" id="aba-q-pagamentos">
     <div class="barra"><select id="q-pag-mes" style="width:auto;min-width:180px"></select><button class="bt sec" id="q-pag-imprimir">Imprimir</button></div>
     <div class="bloco"><div class="tit navy"><span>PAGAMENTOS</span><span id="q-pag-tit"></span></div><div class="rolar" id="q-pag-lista"></div></div>
     <div class="nota">Toque num pagamento para ver o recibo (PDF), partilhá-lo ou anular. Um pagamento errado é anulado (com motivo), nunca apagado.</div>
+  </div>
+
+  <div class="aba" id="aba-q-vinhetas">
+    <div class="barra"><button class="bt sec" id="q-vin-imprimir">Imprimir</button></div>
+    <div class="bloco"><div class="tit navy"><span>VINHETAS POR ENTREGAR</span><span id="q-vin-tit"></span></div><div class="rolar" id="q-vin-lista"></div></div>
+    <div class="nota">Quando um pagamento completa os 12 meses de um ano, o sócio tem direito à vinheta desse ano. Carregue em «Entregue» quando a entregar.</div>
   </div>
 </section>
 
@@ -198,8 +202,9 @@
           <h3 style="margin-top:0">Valores por ano</h3>
           <div class="rolar" id="clb-valores"></div>
           <button class="bt sec peq" id="clb-ano-add" style="margin-top:8px">+ Acrescentar ano</button>
-          <div class="nota">A joia é cobrada uma vez, na inscrição. A quota anual pode ter desconto em relação a 12 mensalidades.
-            Um sócio anual que se inscreve a meio do ano paga os meses que faltam × quota mensal. Mudar os valores de um ano não mexe nos anos anteriores.</div>
+          <div class="nota">A joia é cobrada uma vez, na inscrição. Só há quota mensal: ao receber escolhe-se o nº de meses
+            (1 = Mensal, 3 = Trimestre, 6 = Semestre, 12 = Ano) e o total é meses × quota mensal do ano de cada mês.
+            Mudar os valores de um ano não mexe nos anos anteriores.</div>
         </div>
         <div class="cartao" style="margin-top:12px">
           <h3 style="margin-top:0">Logótipo</h3>

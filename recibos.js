@@ -60,14 +60,8 @@ function carregarJsPDF(){
   return carregarScript(JSPDF_URL).then(()=>window.jspdf.jsPDF);
 }
 /* muitas mensalidades seguidas cabem numa linha («Quotas Jan/2026 a Dez/2026 (12 meses)») */
-function linhasRecibo(itens){
-  if(itens.length <= 14) return itens.map((i)=>[descItem(i), i.valor]);
-  const mensais = itens.filter((i)=>i.tipo === "Quota" && /^\d{4}-\d{2}$/.test(i.periodo)), outros = itens.filter((i)=>!mensais.includes(i));
-  const l = outros.map((i)=>[descItem(i), i.valor]);
-  if(mensais.length) l.push([`Quotas ${mensais[0].rot} a ${mensais[mensais.length - 1].rot} (${mensais.length} meses)`, mensais.reduce((t, i)=>t + i.valor, 0)]);
-  return l;
-}
-const descItem = (i)=> i.tipo === "Joia" ? "Joia de inscrição" : i.tipo === "Quota" ? "Quota " + i.rot : i.rot;
+/* linhas do recibo: joia + uma linha com os meses pagos (ex.: «Quotas: Semestre — Jan/2027 a Jun/2027») */
+const linhasRecibo = (p)=> linhasPag(p);
 
 function gerarReciboPDF(p){
   return carregarJsPDF().then((jsPDF)=>{
@@ -107,11 +101,10 @@ function gerarReciboPDF(p){
     doc.text("Descrição", M + 2, y + 4.4); doc.text("Valor", D2 - 2, y + 4.4, {align: "right"});
     y += 6.5; preto(); doc.setFont("helvetica", "normal"); doc.setFontSize(9.5);
     doc.setDrawColor(208, 215, 225); doc.setLineWidth(0.2);
-    for(const [desc, v] of linhasRecibo(p.itens || [])){
+    for(const [desc, v] of linhasRecibo(p)){
       y += 5.6; doc.text(doc.splitTextToSize(desc, 95)[0], M + 2, y - 1.4); doc.text(eur(v), D2 - 2, y - 1.4, {align: "right"});
       doc.line(M, y, D2, y);
     }
-    if(p.desconto){ y += 5.6; doc.text("Desconto", M + 2, y - 1.4); doc.text("-" + eur(p.desconto), D2 - 2, y - 1.4, {align: "right"}); doc.line(M, y, D2, y); }
     y += 2;
     doc.setFillColor(31, 56, 100); doc.rect(D2 - 52, y, 52, 8, "F");
     doc.setTextColor(255, 255, 255); doc.setFont("helvetica", "bold"); doc.setFontSize(11);

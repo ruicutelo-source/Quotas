@@ -44,13 +44,12 @@ RENDER.socios = function(){
 };
 /* sócios com os filtros do ecrã (também usado no mapa para imprimir) */
 function sociosFiltrados(){
-  const q = norm($("soc-pesq").value), tipo = $("soc-tipo").value, per = $("soc-period").value;
+  const q = norm($("soc-pesq").value), tipo = $("soc-tipo").value;
   return D.socios.filter((s)=>{
     const at = socioAtivo(s);
     if(filtroSoc.estado === "ativos" && !at) return false;
     if(filtroSoc.estado === "inativos" && at) return false;
     if(tipo && s.tipo !== tipo) return false;
-    if(per && s.periodicidade !== per) return false;
     if(q){
       const p = Idx.priv.get(s.id) || {};
       const txt = norm([s.numero, s.nome, s.telemovel, s.telefone, s.email, s.localidade, p.nif].join(" "));
@@ -61,16 +60,15 @@ function sociosFiltrados(){
 }
 function tabelaSocios(lista){
   return tabela(
-    [{t: "Nº", num: true}, {t: "Nome"}, {t: "Tipo", cl: "so-largo"}, {t: "Quota"}, {t: "Telemóvel", cl: "so-largo"}, {t: "Localidade", cl: "so-largo"}, {t: "Estado"}],
+    [{t: "Nº", num: true}, {t: "Nome"}, {t: "Tipo", cl: "so-largo"}, {t: "Telemóvel", cl: "so-largo"}, {t: "Localidade", cl: "so-largo"}, {t: "Estado"}],
     lista.map((s)=>`<tr class="clic" data-id="${esc(s.id)}"><td class="num">${s.numero || "—"}</td><td><div class="com-ava">${avatar(s)}<span>${esc(s.nome)}</span></div></td>
-      <td class="so-largo">${esc(s.tipo)}</td><td>${esc(s.periodicidade)}</td><td class="so-largo">${esc(s.telemovel)}</td>
+      <td class="so-largo">${esc(s.tipo)}</td><td class="so-largo">${esc(s.telemovel)}</td>
       <td class="so-largo">${esc(s.localidade)}</td>
       <td>${socioAtivo(s) ? `<span class="chip verde">Ativo</span>` : `<span class="chip verm">Inativo</span>`}</td></tr>`),
     D.socios.length ? "Nenhum sócio corresponde à pesquisa." : (eTes() ? "Ainda não há sócios. Carregue em «+ Novo sócio»." : "Ainda não há sócios."));
 }
 $("soc-pesq").addEventListener("input", ()=>RENDER.socios());
 $("soc-tipo").onchange = ()=>RENDER.socios();
-$("soc-period").onchange = ()=>RENDER.socios();
 $("soc-estado").querySelectorAll("button").forEach((b)=>b.onclick = ()=>{
   filtroSoc.estado = b.dataset.v;
   $("soc-estado").querySelectorAll("button").forEach((x)=>x.classList.toggle("ativo", x === b));
@@ -134,12 +132,10 @@ function abrirSocio(id){
     <div class="ficha-grid">
       <div><label class="campo">Estado</label><select id="f-estado" ${dis}>${opt(["Ativo", "Inativo"], s && !socioAtivo(s) ? "Inativo" : "Ativo")}</select></div>
       <div><label class="campo">Tipo de sócio *</label><select id="f-tipo" ${dis}>${opt(tipos, s ? s.tipo : tipos[0])}</select></div>
-      <div><label class="campo">Quota *</label><select id="f-period" ${dis}>${opt(["Mensal", "Anual"], s ? s.periodicidade : "Anual")}</select></div>
       <div><label class="campo">Data de inscrição</label><input type="date" id="f-entrada" value="${v("dataEntrada", hojeISO())}" ${dis}></div>
       <div><label class="campo">Data de saída</label><input type="date" id="f-saida" value="${v("dataSaida")}" ${dis}></div>
       <div><label class="campo">Quotas pagas até (antes da app)</label><input type="month" id="f-pagoate" value="${v("pagoAte")}" ${dis}></div>
     </div>
-    ${notaPeriodicidade(s)}
     <div class="nota">Um sócio inativo mantém o nº até o Administrador renumerar; aí fica sem nº, e deixa de gerar quotas a partir do mês em que ficou inativo.
       «Quotas pagas até»: para sócios antigos, o último mês que já estava pago antes de usar a app (não paga joia). Deixe vazio num sócio novo.</div>
     <div class="secao">Quotas</div>
@@ -170,20 +166,8 @@ function abrirSocio(id){
   desenharAgregado();
   if($("f-receber")) $("f-receber").onclick = ()=>{ fecharJanela(); abrirReceber(s.id); };
   $("modal-corpo").querySelectorAll("tr[data-pag]").forEach((tr)=>tr.onclick = ()=>abrirPagamento(tr.dataset.pag));
+  ligarVinhetas($("f-quotas"));
   if(novo) $("f-nome").focus();      // logo, sem atraso (um atraso roubava o cursor a quem já estava a escrever)
-}
-
-/* mudança de periodicidade: só conta a partir de janeiro do ano seguinte (se o sócio já tem quotas este ano) */
-function anoEfeitoPeriodicidade(s){
-  const Y = Number(hojeISO().slice(0, 4));
-  const jaTemEsteAno = String(s.dataEntrada || "").slice(0, 4) < String(Y) ||
-    (Idx.pagSocio.get(s.id) || []).some((p)=>!p.anulado && (p.itens || []).some((i)=>i.tipo === "Quota" && String(i.periodo).startsWith(String(Y))));
-  return jaTemEsteAno ? Y + 1 : Y;
-}
-function notaPeriodicidade(s){
-  if(!s) return "";
-  const Y = Number(hojeISO().slice(0, 4)), agora = perAno(s, Y), depois = perAno(s, Y + 1);
-  return agora !== depois ? `<div class="aviso">Quota <b>${agora}</b> em ${Y}; passa a <b>${depois}</b> a partir de janeiro de ${Y + 1}.</div>` : "";
 }
 
 function desenharAgregado(){
@@ -252,14 +236,6 @@ function gravarSocio(){
 
   const pagoAte = $("f-pagoate").value;
   if(pagoAte && !/^\d{4}-\d{2}$/.test(pagoAte)){ mostrar("«Quotas pagas até» inválido (use mês/ano)."); return; }
-  // periodicidade: histórico por ano
-  const perNova = $("f-period").value;
-  let perHist = antigo ? (antigo.perHist && antigo.perHist.length ? antigo.perHist.map((x)=>({...x})) : [{ano: 0, per: antigo.periodicidade || "Anual"}]) : [{ano: 0, per: perNova}];
-  if(antigo && perNova !== perHist[perHist.length - 1].per){
-    const anoEf = anoEfeitoPeriodicidade(antigo);
-    perHist = perHist.filter((x)=>x.ano < anoEf);
-    if(!perHist.length || perHist[perHist.length - 1].per !== perNova) perHist.push({ano: anoEf, per: perNova});
-  }
   // inatividade: períodos em que o sócio esteve inativo (não gera quotas)
   let inatividade = antigo ? (antigo.inatividade || []).map((x)=>({...x})) : [];
   const eraAtivo = antigo ? socioAtivo(antigo) : true;
@@ -274,7 +250,7 @@ function gravarSocio(){
   const dados = {
     numero, historicoNumeros: historico, ativo, nome, nomeAbreviado: $("f-abrev").value.trim().replace(/\s+/g, " "), dataNascimento: nasc, telemovel, telefone, email,
     morada: $("f-morada").value.trim(), codigoPostal: cp, localidade: $("f-localidade").value.trim(),
-    tipo: $("f-tipo").value, periodicidade: perNova, perHist, pagoAte, inatividade, dataEntrada: entrada, dataSaida: saida,
+    tipo: $("f-tipo").value, pagoAte, inatividade, dataEntrada: entrada, dataSaida: saida,
     observacoes: $("f-obs").value.trim(), nifMasc: nifMascara(nif), nibMasc: ibanMascara(nib),
     agregado: F.agregado.filter((a)=>Idx.socio.has(a.id)),
     ...(novo ? carimbo(true) : {criadoPor: antigo.criadoPor || "", criadoEm: antigo.criadoEm || 0, ...carimbo(false)})

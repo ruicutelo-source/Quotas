@@ -29,7 +29,12 @@ RENDER.inicio = function(){
     return tabela([{t: ""}, {t: "Sócios", num: true}], chaves.map((k)=>`<tr><td>${esc(k)}</td><td class="num">${m.get(k)}</td></tr>`), "Sem sócios ativos.");
   };
   $("ini-tipos").innerHTML = contar("tipo", listas().tiposSocio);
-  $("ini-period").innerHTML = contar("periodicidade", ["Mensal", "Anual"]);
+  const vin = vinhetasPendentes();
+  $("ini-vin").innerHTML = tabela([{t: "Sócio"}, {t: "Vinheta"}],
+    vin.slice(0, 8).map((p)=>{ const s = Idx.socio.get(p.socioId);
+      return `<tr><td>${esc(s ? s.nome : p.nomeSocio)} <span class="pequeno">(${s ? numTxt(s) : "nº " + (p.numeroSocio || "—")})</span></td><td><b>${esc(vinhetasTxt(p))}</b></td></tr>`; })
+    .concat(vin.length > 8 ? [`<tr><td colspan="2" class="pequeno">… e mais ${vin.length - 8}</td></tr>`] : []),
+    "Nenhuma vinheta por entregar.");
 
   const aniv = ativos.filter((s)=>String(s.dataNascimento || "").slice(5, 7) === mesNum)
     .sort((a, b)=>a.dataNascimento.slice(8, 10) - b.dataNascimento.slice(8, 10));
@@ -40,3 +45,4 @@ RENDER.inicio = function(){
   $("ini-aniv").querySelectorAll("tr.clic").forEach((tr)=>tr.onclick = ()=>abrirSocio(tr.dataset.id));
 };
 $("ini-div-cartao").onclick = $("ini-ndiv-cartao").onclick = ()=>{ abaQuotas = "divida"; mostrar("quotas"); };
+$("ini-vin-cartao").onclick = ()=>{ abaQuotas = "vinhetas"; mostrar("quotas"); };

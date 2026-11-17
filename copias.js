@@ -34,18 +34,18 @@ function exportarExcel(){
     const wb = XLSX.utils.book_new(), tes = eTes();
     const socios = D.socios.slice().sort(porNumero);
     XLSX.utils.book_append_sheet(wb, folha(
-      ["Nº", "Nome", "Nome abreviado", "Estado", "Tipo", "Quota", "Inscrição", "Saída", "Quotas pagas até", "Nascimento", "NIF", "NIB/IBAN", "Telemóvel", "Telefone", "Email", "Morada", "Código postal", "Localidade", "Em dívida", "Observações"],
+      ["Nº", "Nome", "Nome abreviado", "Estado", "Tipo", "Inscrição", "Saída", "Quotas pagas até", "Pagas até (hoje)", "Nascimento", "NIF", "NIB/IBAN", "Telemóvel", "Telefone", "Email", "Morada", "Código postal", "Localidade", "Em dívida", "Observações"],
       socios.map((s)=>{ const p = Idx.priv.get(s.id) || {};
-        return [s.numero || "", s.nome, s.nomeAbreviado || "", socioAtivo(s) ? "Ativo" : "Inativo", s.tipo, s.periodicidade, dataXL(s.dataEntrada), dataXL(s.dataSaida), s.pagoAte ? mesPT(s.pagoAte) : "",
+        return [s.numero || "", s.nome, s.nomeAbreviado || "", socioAtivo(s) ? "Ativo" : "Inativo", s.tipo, dataXL(s.dataEntrada), dataXL(s.dataSaida), s.pagoAte ? mesPT(s.pagoAte) : "", pagoAteAgora(s) ? mesPT(pagoAteAgora(s)) : "",
           dataXL(s.dataNascimento), tes ? p.nif || "" : s.nifMasc || "", tes ? (p.nib ? ibanFormatar(p.nib) : "") : s.nibMasc || "", s.telemovel, s.telefone, s.email, s.morada,
           s.codigoPostal, s.localidade, euroXL(situacao(s).divida), s.observacoes || ""]; }),
-      [18], [6, 7, 9], [6, 30, 18, 9, 16, 8, 11, 11, 10, 11, 11, 30, 12, 12, 26, 30, 10, 16, 11, 30]), "Sócios");
+      [18], [5, 6, 9], [6, 30, 18, 9, 16, 11, 11, 10, 10, 11, 11, 30, 12, 12, 26, 30, 10, 16, 11, 30]), "Sócios");
     const pags = D.pagamentos.slice().sort((a, b)=>String(a.data).localeCompare(String(b.data)) || (a.recibo ? a.recibo.num : 0) - (b.recibo ? b.recibo.num : 0));
     XLSX.utils.book_append_sheet(wb, folha(
-      ["Data", "Recibo", "Nº sócio", "Sócio", "Referente a", "Forma", "Conta", "Subtotal", "Desconto", "Total", "Anulado", "Motivo", "Recebido por"],
-      pags.map((p)=>[dataXL(p.data), p.recibo ? p.recibo.txt : "", p.numeroSocio || "", p.nomeSocio, (p.itens || []).map((i)=>i.rot).join(", "), p.forma, contaDaForma(p.forma),
-        euroXL(p.subtotal), euroXL(p.desconto), euroXL(p.total), p.anulado ? "Sim" : "", p.anulado ? p.anulado.motivo : "", p.recebidoPorNome || p.criadoPor || ""]),
-      [7, 8, 9], [0], [11, 11, 8, 28, 40, 16, 8, 10, 10, 10, 8, 24, 18]), "Pagamentos");
+      ["Data", "Recibo", "Nº sócio", "Sócio", "Referente a", "Meses", "Forma", "Conta", "Total", "Vinheta", "Anulado", "Motivo", "Recebido por"],
+      pags.map((p)=>[dataXL(p.data), p.recibo ? p.recibo.txt : "", p.numeroSocio || "", p.nomeSocio, refPag(p), (p.itens || []).filter((i)=>i.tipo === "Quota").length || "", p.forma, contaDaForma(p.forma),
+        euroXL(p.total), (p.vinhetas || []).length ? vinhetasTxt(p) + (p.vinhetaEntregue ? " (entregue)" : " (por entregar)") : "", p.anulado ? "Sim" : "", p.anulado ? p.anulado.motivo : "", p.recebidoPorNome || p.criadoPor || ""]),
+      [8], [0], [11, 11, 8, 28, 40, 7, 16, 8, 10, 20, 8, 24, 18]), "Pagamentos");
     const movs = D.movimentos.slice().sort((a, b)=>String(a.data).localeCompare(String(b.data)));
     XLSX.utils.book_append_sheet(wb, folha(
       ["Data", "Tipo", "Categoria", "Descrição", "Conta", "Para", "Fornecedor", "Documento", "Estado", "Prazo", "Data pagamento", "Valor", "Anulado", "Motivo"],
@@ -238,7 +238,7 @@ function prepararImportacao(linhasFolha, ficheiro){
     if(numero != null && porNum.has(String(numero))){ ignorados.push(`Linha ${linha}: ${nome} — o nº ${numero} já é de ${porNum.get(String(numero)).nome} (nome diferente)`); return; }
     novos.push({linha, privado: {nif, nib: ""}, dados: {
       ...lido, tipo: tipo || "Efetivo", historicoNumeros: [], ativo: !falecido,
-      periodicidade: "Anual", perHist: [{ano: 0, per: "Anual"}], inatividade: [], dataSaida: "",
+      inatividade: [], dataSaida: "",
       observacoes: obs.join("\n"), nifMasc: nifMascara(nif), nibMasc: "", agregado: [], fotoMini: "",
       importado: {ficheiro, linha, em: Date.now()}}});
   });
@@ -263,7 +263,7 @@ $("imp-fich").onchange = (e)=>{
       <p class="pequeno">Colunas reconhecidas: ${r.colunas.map(esc).join(", ")}.</p>
       ${n ? `<p class="pequeno">Novos por tipo: ${[...porTipo.entries()].map(([t, k])=>`${esc(t)} ${k}`).join(" · ")}.
         ${inativos.length ? `<b>Inativos (falecidos segundo a lista): ${inativos.map((x)=>`${x.dados.numero || "—"} ${esc(x.dados.nome)}`).join("; ")}</b>.` : ""}
-        Os novos ficam com quota <b>Anual</b>; sem data de inscrição as quotas não são calculadas.</p>
+        Sem data de inscrição as quotas não são calculadas.</p>
         <div class="rolar">${tabela([{t: "Nº", num: true}, {t: "Nome"}, {t: "Abreviado"}, {t: "Localidade"}, {t: "Nascimento"}], exemplo, "")}</div>` : ""}
       ${caixaLista("Alterações nos sócios que já existem (só o que muda; nada é apagado)", listaAlt)}
       ${caixaLista("Avisos (os dados com erro ficam nas observações da ficha)", r.avisos.map(esc))}${caixaLista("Não importados", r.ignorados.map(esc))}

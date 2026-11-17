@@ -116,6 +116,17 @@ td.c,th.c{text-align:center}
 td.ok{color:var(--verde);font-weight:700;background:var(--verde-cl)}
 td.falta{color:var(--verm);font-weight:700;background:var(--verm-cl)}
 td.fut{color:var(--cinz)}td.na{color:#C0C4CC}
+td.ok.antes{color:#8A9A80;background:#F1F5EE}
+/* receber pagamento (versão 5) */
+.r-estado{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin:10px 0 4px;font-size:15px}
+.atraso{background:var(--verm);color:#fff;border-radius:8px;padding:10px 12px;font-size:15px;margin:8px 0}
+.aviso.forte{background:var(--verm-cl);border-color:var(--verm);color:var(--verm);font-weight:600}
+.r-joia{display:flex;gap:10px;align-items:center;margin:8px 0;font-size:15px;cursor:pointer}
+.r-ref{background:var(--azul-cl);border-radius:8px;padding:9px 12px;margin-top:10px;font-size:15px}
+.vinheta-faixa{background:#FFD200;color:#3A2E00;border:3px solid #E0A800;border-radius:10px;padding:12px 14px;margin-top:10px;font-size:20px;font-weight:800;text-align:center}
+.vinheta-faixa .pequeno{font-size:13px;font-weight:600;color:#5A4A00;margin:2px 0 8px}
+.vinheta-faixa label{display:inline-flex;gap:10px;align-items:center;font-size:15px;font-weight:700;cursor:pointer;background:#fff;border-radius:8px;padding:6px 12px}
+.vinheta-pend{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;background:#FFF4C2;border:1px solid #E0A800;border-radius:8px;padding:8px 12px;margin:8px 0;font-size:14px}
 .ok-txt{color:var(--verde);font-weight:700}
 tr.anulado td{color:#9CA3AF;text-decoration:line-through}
 .itens{font-size:13px;color:#555}

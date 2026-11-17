@@ -22,10 +22,10 @@ const tabMapa = (cab, linhas, rodape)=> `<table class="m-tab"><thead><tr>${cab.m
 /* 1. Lista de sócios (com os filtros do ecrã Sócios) */
 function mapaSocios(){
   const lista = sociosFiltrados(), est = {ativos: "Sócios ativos", inativos: "Sócios inativos", todos: "Todos os sócios"}[filtroSoc.estado];
-  const filtros = [est, $("soc-tipo").value, $("soc-period").value, $("soc-pesq").value ? `pesquisa «${$("soc-pesq").value}»` : ""].filter(Boolean).join(" · ");
+  const filtros = [est, $("soc-tipo").value, $("soc-pesq").value ? `pesquisa «${$("soc-pesq").value}»` : ""].filter(Boolean).join(" · ");
   imprimir("Lista de sócios", `${filtros} · ${lista.length} ${lista.length === 1 ? "sócio" : "sócios"}`, tabMapa(
-    [{t: "Nº", num: true}, {t: "Nome"}, {t: "Tipo"}, {t: "Quota"}, {t: "Inscrição"}, {t: "Telemóvel"}, {t: "Email"}, {t: "Localidade"}, {t: "Estado"}],
-    lista.map((s)=>`<tr><td class="num">${s.numero || "—"}</td><td><b>${esc(s.nome)}</b></td><td>${esc(s.tipo)}</td><td>${esc(s.periodicidade)}</td>
+    [{t: "Nº", num: true}, {t: "Nome"}, {t: "Tipo"}, {t: "Inscrição"}, {t: "Telemóvel"}, {t: "Email"}, {t: "Localidade"}, {t: "Estado"}],
+    lista.map((s)=>`<tr><td class="num">${s.numero || "—"}</td><td><b>${esc(s.nome)}</b></td><td>${esc(s.tipo)}</td>
       <td>${dataPT(s.dataEntrada)}</td><td>${esc(s.telemovel)}</td><td>${esc(s.email)}</td><td>${esc(s.localidade)}</td><td>${socioAtivo(s) ? "Ativo" : "Inativo"}</td></tr>`)), true);
 }
 
@@ -44,7 +44,7 @@ function mapaDevedores(){
   imprimir("Quotas em atraso", `Situação a ${dataPT(hojeISO())} · ${linhas.length} ${linhas.length === 1 ? "sócio" : "sócios"}`, tabMapa(
     [{t: "Nº", num: true}, {t: "Nome"}, {t: "Telemóvel"}, {t: "Em falta"}, {t: "Valor", num: true}],
     linhas.map((x)=>`<tr><td class="num">${x.s.numero || "—"}</td><td><b>${esc(x.s.nome)}</b>${socioAtivo(x.s) ? "" : " <i>(inativo)</i>"}</td><td>${esc(x.s.telemovel)}</td>
-      <td class="m-peq">${esc(x.falta.map((o)=>o.rot).join(", "))}</td><td class="num">${eur(x.divida)}</td></tr>`),
+      <td class="m-peq">${esc(resumoFalta(x.falta))}</td><td class="num">${eur(x.divida)}</td></tr>`),
     `<tr class="m-total"><td></td><td colspan="3">Total em dívida</td><td class="num">${eur(total)}</td></tr>`));
 }
 
@@ -63,12 +63,22 @@ function mapaRecebimentos(){
     `<div class="m-resumo">${resumo}</div>` + tabMapa(
     [{t: "Data"}, {t: "Recibo"}, {t: "Sócio"}, {t: "Referente a"}, {t: "Forma"}, {t: "Total", num: true}],
     pags.map((p)=>`<tr class="${p.anulado ? "m-anulado" : ""}"><td>${dataPT(p.data)}</td><td>${p.recibo ? esc(p.recibo.txt) : "—"}</td>
-      <td>${esc(p.nomeSocio)} (nº ${p.numeroSocio || "—"})</td><td class="m-peq">${esc((p.itens || []).map((i)=>i.rot).join(", "))}</td>
+      <td>${esc(p.nomeSocio)} (nº ${p.numeroSocio || "—"})</td><td class="m-peq">${esc(refPag(p))}</td>
       <td>${esc(p.forma)}</td><td class="num">${p.anulado ? "Anulado" : eur(p.total)}</td></tr>`),
     `<tr class="m-total"><td colspan="5">Total recebido (sem anulados)</td><td class="num">${eur(total)}</td></tr>`));
 }
 
-/* 5. Ficha do sócio */
+/* 5. Vinhetas por entregar */
+function mapaVinhetas(){
+  const lista = vinhetasPendentes().sort((a, b)=>porNumero(Idx.socio.get(a.socioId) || {}, Idx.socio.get(b.socioId) || {}));
+  imprimir("Vinhetas por entregar", `Situação a ${dataPT(hojeISO())} · ${lista.length} ${lista.length === 1 ? "vinheta" : "vinhetas"}`, tabMapa(
+    [{t: "Nº", num: true}, {t: "Sócio"}, {t: "Telemóvel"}, {t: "Vinheta"}, {t: "Pago em"}, {t: "Recibo"}, {t: "Entregue (assinatura)"}],
+    lista.map((p)=>{ const s = Idx.socio.get(p.socioId);
+      return `<tr><td class="num">${s ? s.numero || "—" : p.numeroSocio || "—"}</td><td><b>${esc(s ? s.nome : p.nomeSocio)}</b></td><td>${esc(s ? s.telemovel : "")}</td>
+        <td><b>${esc(vinhetasTxt(p))}</b></td><td>${dataPT(p.data)}</td><td>${p.recibo ? esc(p.recibo.txt) : "—"}</td><td style="min-width:40mm"></td></tr>`; })));
+}
+
+/* 6. Ficha do sócio */
 function mapaFicha(id){
   const s = Idx.socio.get(id); if(!s) return;
   const p = Idx.priv.get(id) || {}, sit = situacao(s);
@@ -81,8 +91,8 @@ function mapaFicha(id){
       <table class="m-ficha">${campo("Nº de sócio", s.numero)}${campo("Nome", `<b>${esc(s.nome)}</b>`)}${campo("Nome abreviado", esc(s.nomeAbreviado))}${campo("Data de nascimento", dataPT(s.dataNascimento))}
         ${campo("NIF", nif)}${campo("NIB / IBAN", nib)}${campo("Telemóvel", esc(s.telemovel))}${campo("Telefone", esc(s.telefone))}${campo("Email", esc(s.email))}</table>
       <table class="m-ficha">${campo("Morada", esc(s.morada))}${campo("Código postal", esc([s.codigoPostal, s.localidade].filter(Boolean).join(" ")))}
-        ${campo("Estado", socioAtivo(s) ? "Ativo" : "Inativo")}${campo("Tipo de sócio", esc(s.tipo))}${campo("Quota", esc(s.periodicidade))}
-        ${campo("Inscrição", dataPT(s.dataEntrada))}${campo("Saída", dataPT(s.dataSaida))}${campo("Quotas pagas até (antes da app)", s.pagoAte ? mesPT(s.pagoAte) : "")}</table>
+        ${campo("Estado", socioAtivo(s) ? "Ativo" : "Inativo")}${campo("Tipo de sócio", esc(s.tipo))}
+        ${campo("Inscrição", dataPT(s.dataEntrada))}${campo("Saída", dataPT(s.dataSaida))}${campo("Quotas pagas até (antes da app)", s.pagoAte ? mesPT(s.pagoAte) : "")}${campo("Quotas pagas até (hoje)", pagoAteAgora(s) ? rotMes(pagoAteAgora(s)) : "")}</table>
     </div>
     ${agregado ? `<h3>Agregado familiar</h3><p>${agregado}</p>` : ""}
     ${s.observacoes ? `<h3>Observações</h3><p style="white-space:pre-wrap">${esc(s.observacoes)}</p>` : ""}
@@ -90,10 +100,11 @@ function mapaFicha(id){
     <p>${tipoIsento(s.tipo) ? "Isento de quotas (" + esc(s.tipo) + ")." : sit.divida ? `<b>Em dívida: ${eur(sit.divida)}</b> — ${esc(sit.falta.map((o)=>o.rot).join(", "))}` : "Quotas em dia."}</p>
     ${tabMapa([{t: "Data"}, {t: "Recibo"}, {t: "Referente a"}, {t: "Forma"}, {t: "Total", num: true}],
       pags.map((x)=>`<tr class="${x.anulado ? "m-anulado" : ""}"><td>${dataPT(x.data)}</td><td>${x.recibo ? esc(x.recibo.txt) : "—"}</td>
-        <td class="m-peq">${esc((x.itens || []).map((i)=>i.rot).join(", "))}</td><td>${esc(x.forma)}</td><td class="num">${x.anulado ? "Anulado" : eur(x.total)}</td></tr>`))}`, false);
+        <td class="m-peq">${esc(refPag(x))}</td><td>${esc(x.forma)}</td><td class="num">${x.anulado ? "Anulado" : eur(x.total)}</td></tr>`))}`, false);
 }
 
 $("soc-imprimir").onclick = mapaSocios;
 $("q-div-imprimir").onclick = mapaDevedores;
 $("q-quadro-imprimir").onclick = mapaQuadro;
 $("q-pag-imprimir").onclick = mapaRecebimentos;
+$("q-vin-imprimir").onclick = mapaVinhetas;
