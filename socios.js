@@ -46,7 +46,7 @@ RENDER.socios = function(){
 function sociosFiltrados(){
   const q = norm($("soc-pesq").value), tipo = $("soc-tipo").value;
   return D.socios.filter((s)=>{
-    const at = socioAtivo(s);
+    const at = contaComoSocio(s);      // os suspensos continuam a contar como sócios
     if(filtroSoc.estado === "ativos" && !at) return false;
     if(filtroSoc.estado === "inativos" && at) return false;
     if(tipo && s.tipo !== tipo) return false;
@@ -64,7 +64,7 @@ function tabelaSocios(lista){
     lista.map((s)=>`<tr class="clic" data-id="${esc(s.id)}"><td class="num">${s.numero || "—"}</td><td><div class="com-ava">${avatar(s)}<span>${esc(s.nome)}</span></div></td>
       <td class="so-largo">${esc(s.tipo)}</td><td class="so-largo">${esc(s.telemovel)}</td>
       <td class="so-largo">${esc(s.localidade)}</td>
-      <td>${socioAtivo(s) ? `<span class="chip verde">Ativo</span>` : `<span class="chip verm">Inativo</span>`}</td></tr>`),
+      <td>${estadoChip(s)}</td></tr>`),
     D.socios.length ? "Nenhum sócio corresponde à pesquisa." : (eTes() ? "Ainda não há sócios. Carregue em «+ Novo sócio»." : "Ainda não há sócios."));
 }
 $("soc-pesq").addEventListener("input", ()=>RENDER.socios());
@@ -131,6 +131,8 @@ function abrirSocio(id){
     <div class="secao">Sócio</div>
     <div class="ficha-grid">
       <div><label class="campo">Estado</label><select id="f-estado" ${dis}>${opt(["Ativo", "Inativo"], s && !socioAtivo(s) ? "Inativo" : "Ativo")}</select></div>
+      <div id="f-sit-caixa" class="s2" style="${s && !socioAtivo(s) ? "" : "display:none"}"><label class="campo">Situação (sócio inativo)</label>
+        <select id="f-situacao" ${dis}>${Object.entries(SITUACOES).map(([k, t])=>`<option value="${k}" ${s && situacaoSocio(s) === k ? "selected" : ""}>${esc(t)}</option>`).join("")}</select></div>
       <div><label class="campo">Tipo de sócio *</label><select id="f-tipo" ${dis}>${opt(tipos, s ? s.tipo : tipos[0])}</select></div>
       <div><label class="campo">Data de inscrição</label><input type="date" id="f-entrada" value="${v("dataEntrada", hojeISO())}" ${dis}></div>
       <div><label class="campo">Data de saída</label><input type="date" id="f-saida" value="${v("dataSaida")}" ${dis}></div>
@@ -164,6 +166,7 @@ function abrirSocio(id){
     $("f-foto-tirar").onclick = ()=>{ F.foto = null; $("f-foto").innerHTML = `<span class="foto-vazia">${esc(iniciais($("f-nome").value))}</span>`; $("f-foto-tirar").style.display = "none"; };
   }
   desenharAgregado();
+  if(pode) $("f-estado").onchange = ()=>{ $("f-sit-caixa").style.display = $("f-estado").value === "Inativo" ? "" : "none"; };
   if($("f-receber")) $("f-receber").onclick = ()=>{ fecharJanela(); abrirReceber(s.id); };
   $("modal-corpo").querySelectorAll("tr[data-pag]").forEach((tr)=>tr.onclick = ()=>abrirPagamento(tr.dataset.pag));
   ligarVinhetas($("f-quotas"));
@@ -240,8 +243,14 @@ function gravarSocio(){
   if(pagoAte && !/^\d{4}-\d{2}$/.test(pagoAte)){ mostrar("«Quotas pagas até» inválido (use mês/ano)."); return; }
   // inatividade: períodos em que o sócio esteve inativo (não gera quotas)
   let inatividade = antigo ? (antigo.inatividade || []).map((x)=>({...x})) : [];
-  const eraAtivo = antigo ? socioAtivo(antigo) : true;
-  if(eraAtivo && !ativo) inatividade.push({de: mesISO(saida) || mesAtual(), ate: null});
+  const eraAtivo = antigo ? socioAtivo(antigo) : true, situacao = ativo ? "" : $("f-situacao").value;
+  if(eraAtivo && !ativo) inatividade.push({de: mesISO(saida) || mesAtual(), ate: null, situacao});
+  // continua inativo mas mudou de situação: fecha o período anterior e abre outro a partir deste mês
+  if(!eraAtivo && !ativo && situacaoSocio(antigo) !== situacao){
+    const aberto = inatividade.find((x)=>!x.ate);
+    if(aberto){ const fim = somaMes(mesAtual(), -1); if(fim >= aberto.de){ aberto.ate = fim; aberto.situacao = aberto.situacao || situacaoSocio(antigo); } else inatividade = inatividade.filter((x)=>x !== aberto); }
+    inatividade.push({de: mesAtual(), ate: null, situacao});
+  }
   if(!eraAtivo && ativo){
     const aberto = inatividade.find((x)=>!x.ate);
     if(aberto){ aberto.ate = somaMes(mesAtual(), -1); if(aberto.ate < aberto.de) inatividade = inatividade.filter((x)=>x !== aberto); }
@@ -252,7 +261,7 @@ function gravarSocio(){
   const dados = {
     numero, historicoNumeros: historico, ativo, nome, nomeAbreviado: $("f-abrev").value.trim().replace(/\s+/g, " "), dataNascimento: nasc, telemovel, telefone, email,
     morada: $("f-morada").value.trim(), codigoPostal: cp, localidade: $("f-localidade").value.trim(),
-    tipo: $("f-tipo").value, pagoAte, inatividade, dataEntrada: entrada, dataSaida: saida,
+    tipo: $("f-tipo").value, situacao, pagoAte, inatividade, dataEntrada: entrada, dataSaida: saida,
     observacoes: $("f-obs").value.trim(), nifMasc: nifMascara(nif), nibMasc: ibanMascara(nib),
     agregado: F.agregado.filter((a)=>Idx.socio.has(a.id)),
     ...(novo ? carimbo(true) : {criadoPor: antigo.criadoPor || "", criadoEm: antigo.criadoEm || 0, ...carimbo(false)})
@@ -294,18 +303,19 @@ function apagarSocio(id){
 
 /* ---------- renumeração (só Administrador, só quando ele decide) ----------
    Ativos: por data de inscrição e, no mesmo dia, por ordem alfabética → 1, 2, 3…
-   Inativos: ficam sem nº (o nº antigo vai para o histórico da ficha). */
+   Inativos que saíram: ficam sem nº (o nº antigo vai para o histórico da ficha).
+   Suspensos e inativos a pagar: mantêm o lugar, como os ativos. */
 function planoRenumeracao(){
-  const ativos = D.socios.filter(socioAtivo).sort((a, b)=>
+  const ativos = D.socios.filter(mantemNumero).sort((a, b)=>
     String(a.dataEntrada || "9999").localeCompare(String(b.dataEntrada || "9999")) ||
     a.nome.localeCompare(b.nome, "pt", {sensitivity: "base"}) || porTexto(a.id, b.id));
   const plano = ativos.map((s, i)=>({s, novo: i + 1}));
-  for(const s of D.socios.filter((x)=>!socioAtivo(x) && x.numero)) plano.push({s, novo: null});
+  for(const s of D.socios.filter((x)=>!mantemNumero(x) && x.numero)) plano.push({s, novo: null});
   return plano;
 }
 function renumerar(){
   if(!eAdmin()) return;
-  const semDataAtivos = D.socios.filter((s)=>socioAtivo(s) && !s.dataEntrada);
+  const semDataAtivos = D.socios.filter((s)=>mantemNumero(s) && !s.dataEntrada);
   if(semDataAtivos.length){
     aviso(`Há ${semDataAtivos.length} sócio(s) ativo(s) sem data de inscrição (por exemplo: ${semDataAtivos.slice(0, 3).map((s)=>s.nome).join(", ")}).\n\n` +
       "A renumeração ordena os sócios pela data de inscrição; sem ela os números ficavam trocados. Preencha as datas primeiro.", "Renumerar sócios");
@@ -316,7 +326,7 @@ function renumerar(){
     <td class="num">${p.s.numero || "—"}</td><td class="num"><b>${p.novo || "sem nº"}</b></td></tr>`);
   const semData = plano.filter((p)=>p.novo && !p.s.dataEntrada).length;
   const corpo = `<p>Os sócios <b>ativos</b> são numerados por data de inscrição e, no mesmo dia, por ordem alfabética.
-      Os <b>inativos</b> ficam sem número. Os números antigos ficam guardados no histórico de cada ficha.</p>
+      Os suspensos e os inativos a pagar quotas mantêm o lugar. Os <b>inativos que saíram</b> ficam sem número. Os números antigos ficam guardados no histórico de cada ficha.</p>
     ${semData ? `<div class="aviso">${semData} sócio(s) sem data de inscrição ficam no fim da lista.</div>` : ""}
     <p><b>${muda.length}</b> ${muda.length === 1 ? "sócio muda" : "sócios mudam"} de número (a amarelo).</p>
     <div class="rolar" style="max-height:50vh;overflow-y:auto">${tabela([{t: "Sócio"}, {t: "Inscrição"}, {t: "Nº atual", num: true}, {t: "Nº novo", num: true}], linhas, "Não há sócios.")}</div>`;
@@ -379,7 +389,7 @@ function ligarEscolherSocio(id, lista, aoEscolher){
   let res = [], sel = 0;
   const escolher = (s)=>{ hid.value = s.id; txt.value = rotSocio(s); box.style.display = "none"; if(aoEscolher) aoEscolher(s.id); };
   const desenhar = ()=>{
-    box.innerHTML = res.length ? res.map((s, i)=>`<div class="esc-op ${i === sel ? "sel" : ""}" data-i="${i}">${s.numero ? `<b>${esc(s.numero)}</b> · ` : ""}${esc(s.nome)}${socioAtivo(s) ? "" : ` <span class="pequeno">(inativo)</span>`}</div>`).join("")
+    box.innerHTML = res.length ? res.map((s, i)=>`<div class="esc-op ${i === sel ? "sel" : ""}" data-i="${i}">${s.numero ? `<b>${esc(s.numero)}</b> · ` : ""}${esc(s.nome)}${socioAtivo(s) ? "" : ` <span class="pequeno">(${esc(estadoTxt(s).toLowerCase())})</span>`}</div>`).join("")
       : `<div class="esc-vazio">Nenhum sócio encontrado.</div>`;
     box.style.display = txt.value.trim() ? "block" : "none";
     box.querySelectorAll(".esc-op").forEach((d)=>d.onmousedown = (e)=>{ e.preventDefault(); escolher(res[Number(d.dataset.i)]); });

@@ -6,7 +6,7 @@
 /* A ligação à base de dados (FIREBASE_CONFIG) está no ficheiro config.js:
    - versão do clube: config.js com os dados do projeto Firebase do clube;
    - versão de testes: config.js vazio → MODO LOCAL (dados só neste computador, sem login). */
-const VERSAO_APP = "5.1";
+const VERSAO_APP = "5.2";
 
 /* Administrador principal: tem sempre acesso total, mesmo sem ficha em Utilizadores.
    Tem de ser igual ao email escrito nas regras do Firestore. */
@@ -22,7 +22,7 @@ const PERFIS = ["Administrador", "Tesoureiro", "Consulta"];
    config/listas:       {tiposSocio:[...], tiposIsentos:[...], formasPagamento:[...]}
    cargos/{id}:         {orgao, cargo, socioId, nome, mandato}
    socios/{id}:         {numero (inteiro, texto com letra como "203A", ou null = sem nº), historicoNumeros:[{numero, ate}], ativo, nome, nomeAbreviado, dataNascimento, telemovel, telefone, email, morada, codigoPostal, localidade,
-                         tipo, pagoAte ("AAAA-MM"), inatividade:[{de, ate}],   (periodicidade/perHist: versões 1–4, já não se usam)
+                         tipo, pagoAte ("AAAA-MM"), inatividade:[{de, ate, situacao}], situacao (saiu|suspenso|paga, só nos inativos),   (periodicidade/perHist: versões 1–4, já não se usam)
                          dataEntrada, dataSaida, observacoes, nifMasc, nibMasc,
                          agregado:[{id, relacao}], criadoPor, criadoEm, alteradoPor, alteradoEm}
    sociosPrivado/{id}:  {nif, nib}   (só Administrador e Tesoureiro conseguem ler)
@@ -77,6 +77,17 @@ const listas = ()=>{ const l = D.config.find((c)=>c.id === "listas") || {};
 const novoIdSocio = ()=> "S" + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 const numTxt = (s)=> s && s.numero ? "nº " + s.numero : "sem nº";
 const socioAtivo = (s)=> s.ativo !== false;          // escolhido à mão na ficha (a data de saída é só informativa)
+/* situação de um sócio INATIVO (versão 5.2):
+   saiu     — saiu / desistiu: não paga quotas e perde o nº na renumeração (o que acontecia antes);
+   suspenso — suspenso pela Direção (ex.: doença prolongada): não paga, mantém o nº e a antiguidade e conta como sócio nas listagens;
+   paga     — inativo a pagar quotas: paga como um ativo e mantém o nº. */
+const SITUACOES = {saiu: "Saiu / desistiu", suspenso: "Suspenso pela Direção (não paga, mantém o nº)", paga: "Inativo a pagar quotas (mantém o nº)"};
+const situacaoSocio = (s)=> socioAtivo(s) ? "" : (SITUACOES[s.situacao] ? s.situacao : "saiu");
+const mantemNumero = (s)=> socioAtivo(s) || situacaoSocio(s) !== "saiu";
+const contaComoSocio = (s)=> socioAtivo(s) || situacaoSocio(s) === "suspenso";     // ativos + suspensos (listagens e contagens)
+const estadoTxt = (s)=> socioAtivo(s) ? "Ativo" : ({suspenso: "Suspenso", paga: "Inativo (paga)"})[situacaoSocio(s)] || "Inativo";
+const estadoChip = (s)=> socioAtivo(s) ? `<span class="chip verde">Ativo</span>` : situacaoSocio(s) === "suspenso" ? `<span class="chip amarelo">Suspenso</span>`
+  : `<span class="chip verm">${esc(estadoTxt(s))}</span>`;
 
 let nomeUtilizador = "";       // nome de quem está a usar a app (vai nos recibos: «Recebido por»)
 let renderAgendado = false;

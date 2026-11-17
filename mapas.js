@@ -26,7 +26,7 @@ function mapaSocios(){
   imprimir("Lista de sócios", `${filtros} · ${lista.length} ${lista.length === 1 ? "sócio" : "sócios"}`, tabMapa(
     [{t: "Nº", num: true}, {t: "Nome"}, {t: "Tipo"}, {t: "Inscrição"}, {t: "Telemóvel"}, {t: "Email"}, {t: "Localidade"}, {t: "Estado"}],
     lista.map((s)=>`<tr><td class="num">${s.numero || "—"}</td><td><b>${esc(s.nome)}</b></td><td>${esc(s.tipo)}</td>
-      <td>${dataPT(s.dataEntrada)}</td><td>${esc(s.telemovel)}</td><td>${esc(s.email)}</td><td>${esc(s.localidade)}</td><td>${socioAtivo(s) ? "Ativo" : "Inativo"}</td></tr>`)), true);
+      <td>${dataPT(s.dataEntrada)}</td><td>${esc(s.telemovel)}</td><td>${esc(s.email)}</td><td>${esc(s.localidade)}</td><td>${esc(estadoTxt(s))}</td></tr>`)), true);
 }
 
 /* 2. Quadro de quotas do ano (igual ao do ecrã) */
@@ -71,11 +71,12 @@ function mapaRecebimentos(){
 /* 5. Vinhetas por entregar */
 function mapaVinhetas(){
   const lista = vinhetasPendentes().sort((a, b)=>porNumero(Idx.socio.get(a.socioId) || {}, Idx.socio.get(b.socioId) || {}));
-  imprimir("Vinhetas por entregar", `Situação a ${dataPT(hojeISO())} · ${lista.length} ${lista.length === 1 ? "vinheta" : "vinhetas"}`, tabMapa(
-    [{t: "Nº", num: true}, {t: "Sócio"}, {t: "Telemóvel"}, {t: "Vinheta"}, {t: "Pago em"}, {t: "Recibo"}, {t: "Entregue (assinatura)"}],
+  const total = lista.reduce((t, p)=>t + vinhetasFalta(p).length, 0);
+  imprimir("Vinhetas por entregar", `Situação a ${dataPT(hojeISO())} · ${nVinhetas(total)}`, tabMapa(
+    [{t: "Nº", num: true}, {t: "Sócio"}, {t: "Telemóvel"}, {t: "Vinhetas por entregar"}, {t: "Qt.", num: true}, {t: "Pago em"}, {t: "Recibo"}, {t: "Entregue (assinatura)"}],
     lista.map((p)=>{ const s = Idx.socio.get(p.socioId);
       return `<tr><td class="num">${s ? s.numero || "—" : p.numeroSocio || "—"}</td><td><b>${esc(s ? s.nome : p.nomeSocio)}</b></td><td>${esc(s ? s.telemovel : "")}</td>
-        <td><b>${esc(vinhetasTxt(p))}</b></td><td>${dataPT(p.data)}</td><td>${p.recibo ? esc(p.recibo.txt) : "—"}</td><td style="min-width:40mm"></td></tr>`; })));
+        <td class="m-peq"><b>${esc(listaMeses(vinhetasFalta(p)))}</b></td><td class="num">${vinhetasFalta(p).length}</td><td>${dataPT(p.data)}</td><td>${p.recibo ? esc(p.recibo.txt) : "—"}</td><td style="min-width:40mm"></td></tr>`; })));
 }
 
 /* 6. Ficha do sócio */
@@ -91,7 +92,7 @@ function mapaFicha(id){
       <table class="m-ficha">${campo("Nº de sócio", s.numero)}${campo("Nome", `<b>${esc(s.nome)}</b>`)}${campo("Nome abreviado", esc(s.nomeAbreviado))}${campo("Data de nascimento", dataPT(s.dataNascimento))}
         ${campo("NIF", nif)}${campo("NIB / IBAN", nib)}${campo("Telemóvel", esc(s.telemovel))}${campo("Telefone", esc(s.telefone))}${campo("Email", esc(s.email))}</table>
       <table class="m-ficha">${campo("Morada", esc(s.morada))}${campo("Código postal", esc([s.codigoPostal, s.localidade].filter(Boolean).join(" ")))}
-        ${campo("Estado", socioAtivo(s) ? "Ativo" : "Inativo")}${campo("Tipo de sócio", esc(s.tipo))}
+        ${campo("Estado", esc(estadoTxt(s)) + (situacaoSocio(s) ? " — " + esc(SITUACOES[situacaoSocio(s)]) : ""))}${campo("Tipo de sócio", esc(s.tipo))}
         ${campo("Inscrição", dataPT(s.dataEntrada))}${campo("Saída", dataPT(s.dataSaida))}${campo("Quotas pagas até (antes da app)", s.pagoAte ? mesPT(s.pagoAte) : "")}${campo("Quotas pagas até (hoje)", pagoAteAgora(s) ? rotMes(pagoAteAgora(s)) : "")}</table>
     </div>
     ${agregado ? `<h3>Agregado familiar</h3><p>${agregado}</p>` : ""}

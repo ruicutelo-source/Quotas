@@ -36,15 +36,15 @@ function exportarExcel(){
     XLSX.utils.book_append_sheet(wb, folha(
       ["Nº", "Nome", "Nome abreviado", "Estado", "Tipo", "Inscrição", "Saída", "Quotas pagas até", "Pagas até (hoje)", "Nascimento", "NIF", "NIB/IBAN", "Telemóvel", "Telefone", "Email", "Morada", "Código postal", "Localidade", "Em dívida", "Observações"],
       socios.map((s)=>{ const p = Idx.priv.get(s.id) || {};
-        return [s.numero || "", s.nome, s.nomeAbreviado || "", socioAtivo(s) ? "Ativo" : "Inativo", s.tipo, dataXL(s.dataEntrada), dataXL(s.dataSaida), s.pagoAte ? mesPT(s.pagoAte) : "", pagoAteAgora(s) ? mesPT(pagoAteAgora(s)) : "",
+        return [s.numero || "", s.nome, s.nomeAbreviado || "", estadoTxt(s), s.tipo, dataXL(s.dataEntrada), dataXL(s.dataSaida), s.pagoAte ? mesPT(s.pagoAte) : "", pagoAteAgora(s) ? mesPT(pagoAteAgora(s)) : "",
           dataXL(s.dataNascimento), tes ? p.nif || "" : s.nifMasc || "", tes ? (p.nib ? ibanFormatar(p.nib) : "") : s.nibMasc || "", s.telemovel, s.telefone, s.email, s.morada,
           s.codigoPostal, s.localidade, euroXL(situacao(s).divida), s.observacoes || ""]; }),
       [18], [5, 6, 9], [6, 30, 18, 9, 16, 11, 11, 10, 10, 11, 11, 30, 12, 12, 26, 30, 10, 16, 11, 30]), "Sócios");
     const pags = D.pagamentos.slice().sort((a, b)=>String(a.data).localeCompare(String(b.data)) || (a.recibo ? a.recibo.num : 0) - (b.recibo ? b.recibo.num : 0));
     XLSX.utils.book_append_sheet(wb, folha(
-      ["Data", "Recibo", "Nº sócio", "Sócio", "Referente a", "Meses", "Forma", "Conta", "Total", "Vinheta", "Anulado", "Motivo", "Recebido por"],
+      ["Data", "Recibo", "Nº sócio", "Sócio", "Referente a", "Meses", "Forma", "Conta", "Total", "Vinhetas", "Anulado", "Motivo", "Recebido por"],
       pags.map((p)=>[dataXL(p.data), p.recibo ? p.recibo.txt : "", p.numeroSocio || "", p.nomeSocio, refPag(p), (p.itens || []).filter((i)=>i.tipo === "Quota").length || "", p.forma, contaDaForma(p.forma),
-        euroXL(p.total), (p.vinhetas || []).length ? vinhetasTxt(p) + (p.vinhetaEntregue ? " (entregue)" : " (por entregar)") : "", p.anulado ? "Sim" : "", p.anulado ? p.anulado.motivo : "", p.recebidoPorNome || p.criadoPor || ""]),
+        euroXL(p.total), vinhetasDe(p).length ? `${vinhetasDe(p).length} (${vinhetasFalta(p).length ? vinhetasFalta(p).length + " por entregar" : "todas entregues"})` : "", p.anulado ? "Sim" : "", p.anulado ? p.anulado.motivo : "", p.recebidoPorNome || p.criadoPor || ""]),
       [8], [0], [11, 11, 8, 28, 40, 7, 16, 8, 10, 20, 8, 24, 18]), "Pagamentos");
     const movs = D.movimentos.slice().sort((a, b)=>String(a.data).localeCompare(String(b.data)));
     XLSX.utils.book_append_sheet(wb, folha(

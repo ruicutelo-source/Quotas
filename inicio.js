@@ -4,7 +4,7 @@
    ===================================================================== */
 RENDER.inicio = function(){
   const ano = hojeISO().slice(0, 4), mesNum = hojeISO().slice(5, 7);
-  const ativos = D.socios.filter(socioAtivo);
+  const ativos = D.socios.filter(contaComoSocio);     // ativos + suspensos pela Direção
   $("ini-ativos").textContent = ativos.length;
   $("ini-total").textContent = D.socios.length;
   $("ini-rot-novos").textContent = "Entradas em " + ano;
@@ -29,11 +29,13 @@ RENDER.inicio = function(){
     return tabela([{t: ""}, {t: "Sócios", num: true}], chaves.map((k)=>`<tr><td>${esc(k)}</td><td class="num">${m.get(k)}</td></tr>`), "Sem sócios ativos.");
   };
   $("ini-tipos").innerHTML = contar("tipo", listas().tiposSocio);
-  const vin = vinhetasPendentes();
-  $("ini-vin").innerHTML = tabela([{t: "Sócio"}, {t: "Vinheta"}],
-    vin.slice(0, 8).map((p)=>{ const s = Idx.socio.get(p.socioId);
-      return `<tr><td>${esc(s ? s.nome : p.nomeSocio)} <span class="pequeno">(${s ? numTxt(s) : "nº " + (p.numeroSocio || "—")})</span></td><td><b>${esc(vinhetasTxt(p))}</b></td></tr>`; })
-    .concat(vin.length > 8 ? [`<tr><td colspan="2" class="pequeno">… e mais ${vin.length - 8}</td></tr>`] : []),
+  // vinhetas por entregar, por sócio
+  const porSocio = new Map();
+  for(const p of vinhetasPendentes()) porSocio.set(p.socioId, (porSocio.get(p.socioId) || 0) + vinhetasFalta(p).length);
+  const vin = [...porSocio.entries()].map(([id, n])=>({s: Idx.socio.get(id), n})).filter((x)=>x.s).sort((a, b)=>porNumero(a.s, b.s));
+  $("ini-vin").innerHTML = tabela([{t: "Sócio"}, {t: "Vinhetas", num: true}],
+    vin.slice(0, 8).map((x)=>`<tr><td>${esc(x.s.nome)} <span class="pequeno">(${numTxt(x.s)})</span></td><td class="num"><b>${x.n}</b></td></tr>`)
+    .concat(vin.length > 8 ? [`<tr><td colspan="2" class="pequeno">… e mais ${vin.length - 8} sócio(s)</td></tr>`] : []),
     "Nenhuma vinheta por entregar.");
 
   const aniv = ativos.filter((s)=>String(s.dataNascimento || "").slice(5, 7) === mesNum)

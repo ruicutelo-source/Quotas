@@ -197,3 +197,15 @@ body.modo-teste header .marca::after{content:"VERSÃO DE TESTES";font-size:11px;
 .esc-op{padding:9px 12px;cursor:pointer;font-size:15px;border-bottom:1px solid #F0F2F5}
 .esc-op:hover,.esc-op.sel{background:var(--azul-cl)}
 .esc-vazio{padding:9px 12px;color:var(--cinz);font-size:14px}
+/* vinhetas mensais (versão 5.2) */
+.vinheta-pend{flex-direction:column;align-items:stretch}
+.vin-linha{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:4px}
+.vin-meses{display:flex;flex-wrap:wrap;gap:5px}
+.vin-mes{border:1px solid #E0A800;background:#fff;color:#3A2E00;border-radius:14px;padding:4px 10px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit}
+.vin-mes:hover{background:#FFF0A8}
+.vin-mes.ok{background:var(--verde-cl);border-color:var(--verde);color:var(--verde);cursor:default}
+.vin-mes.so-ver{cursor:default}
+.vin-grelha{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin:6px 0 8px;max-height:200px;overflow-y:auto}
+.vin-grelha label{display:inline-flex;gap:6px;align-items:center;font-size:14px;font-weight:700;cursor:pointer;background:#fff;border-radius:8px;padding:5px 10px}
+.vin-grelha input{width:18px;height:18px}
+.chip.amarelo{background:#FFF0B3;color:#7A5B00}
