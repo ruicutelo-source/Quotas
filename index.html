@@ -81,6 +81,7 @@
     <div class="barra">
       <button class="bt sec peq" id="q-ano-ant">◀</button><b id="q-ano" style="font-size:18px;min-width:50px;text-align:center"></b><button class="bt sec peq" id="q-ano-seg">▶</button>
       <select id="q-quadro-estado" style="width:auto"><option value="ativos">Só ativos</option><option value="todos">Todos</option></select>
+      <input type="search" id="q-quadro-pesq" placeholder="Pesquisar nome ou nº…" style="flex:1;min-width:160px">
       <button class="bt sec" id="q-quadro-imprimir">Imprimir</button>
     </div>
     <div class="bloco"><div class="rolar" id="q-quadro"></div></div>
@@ -88,13 +89,13 @@
   </div>
 
   <div class="aba" id="aba-q-pagamentos">
-    <div class="barra"><select id="q-pag-mes" style="width:auto;min-width:180px"></select><button class="bt sec" id="q-pag-imprimir">Imprimir</button></div>
+    <div class="barra"><input type="search" id="q-pag-pesq" placeholder="Pesquisar nome, nº ou recibo…"><select id="q-pag-mes" style="width:auto;min-width:180px"></select><button class="bt sec" id="q-pag-imprimir">Imprimir</button></div>
     <div class="bloco"><div class="tit navy"><span>PAGAMENTOS</span><span id="q-pag-tit"></span></div><div class="rolar" id="q-pag-lista"></div></div>
     <div class="nota">Toque num pagamento para ver o recibo (PDF), partilhá-lo ou anular. Um pagamento errado é anulado (com motivo), nunca apagado.</div>
   </div>
 
   <div class="aba" id="aba-q-vinhetas">
-    <div class="barra"><button class="bt sec" id="q-vin-imprimir">Imprimir</button></div>
+    <div class="barra"><input type="search" id="q-vin-pesq" placeholder="Pesquisar nome ou nº…"><button class="bt sec" id="q-vin-imprimir">Imprimir</button></div>
     <div class="bloco"><div class="tit navy"><span>VINHETAS POR ENTREGAR</span><span id="q-vin-tit"></span></div><div class="rolar" id="q-vin-lista"></div></div>
     <div class="nota">Quando um pagamento completa os 12 meses de um ano, o sócio tem direito à vinheta desse ano. Carregue em «Entregue» quando a entregar.</div>
   </div>
@@ -136,6 +137,7 @@
 
   <div class="aba" id="aba-t-extrato">
     <div class="barra">
+      <input type="search" id="t-ext-pesq" placeholder="Pesquisar descrição, categoria, recibo…" style="flex:1;min-width:160px">
       <select id="t-ext-per" style="width:auto;min-width:160px"></select>
       <select id="t-ext-conta" style="width:auto"><option value="">Caixa e Banco</option><option>Caixa</option><option>Banco</option></select>
       <select id="t-ext-tipo" style="width:auto"><option value="">Todos os tipos</option><option>Quotas</option><option>Receita</option><option>Despesa</option><option>Transferência</option></select>

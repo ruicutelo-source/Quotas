@@ -6,7 +6,7 @@
 /* A ligação à base de dados (FIREBASE_CONFIG) está no ficheiro config.js:
    - versão do clube: config.js com os dados do projeto Firebase do clube;
    - versão de testes: config.js vazio → MODO LOCAL (dados só neste computador, sem login). */
-const VERSAO_APP = "5.0";
+const VERSAO_APP = "5.1";
 
 /* Administrador principal: tem sempre acesso total, mesmo sem ficha em Utilizadores.
    Tem de ser igual ao email escrito nas regras do Firestore. */
@@ -293,7 +293,38 @@ function janela(tit, corpoHtml, acoes, larga){
   $("modal").classList.add("aberto");
   $("modal").scrollTop = 0;
 }
-function fecharJanela(){ $("modal").classList.remove("aberto"); }
+function fecharJanela(){ $("modal").classList.remove("aberto"); limparPesquisas(); }
+
+/* ---------- caixas de pesquisa ----------
+   Depois de cada função (fechar uma janela: gravar, cancelar, ver; ou imprimir) as pesquisas ficam vazias.
+   Enter numa pesquisa abre o primeiro resultado da lista. */
+const PESQUISAS = {"soc-pesq": "soc-lista", "q-pesq": "q-div-lista", "q-quadro-pesq": "q-quadro", "q-pag-pesq": "q-pag-lista",
+                   "q-vin-pesq": "q-vin-lista", "t-ext-pesq": "t-ext", "t-forn-pesq": "t-forn-lista"};
+function limparPesquisas(){
+  let mudou = false;
+  for(const id of Object.keys(PESQUISAS)){ const el = $(id); if(el && el.value){ el.value = ""; mudou = true; } }
+  if(mudou && perfil) agendarRender();
+}
+/* a pesquisa corresponde? (todas as palavras escritas aparecem nos campos) */
+function corresponde(q, ...campos){
+  q = norm(q); if(!q) return true;
+  const t = norm(campos.join(" "));
+  return q.split(/\s+/).every((x)=>t.includes(x));
+}
+document.addEventListener("keydown", (e)=>{
+  if(e.key !== "Enter" || !PESQUISAS[e.target.id]) return;
+  const tr = document.querySelector("#" + PESQUISAS[e.target.id] + " tr.clic");
+  if(tr){ e.preventDefault(); tr.click(); }
+});
+/* ao clicar num campo que já tem valor, fica tudo selecionado: o que se escrever substitui o que lá estava */
+const SELECIONAVEIS = ["text", "search", "number", "email", "tel", "url"];
+document.addEventListener("focusin", (e)=>{
+  const el = e.target;
+  if(el.tagName !== "INPUT" || !SELECIONAVEIS.includes(el.type) || el.readOnly || el.disabled || !el.value) return;
+  try{ el.select(); el._selecionado = true; }catch(err){}
+});
+document.addEventListener("mouseup", (e)=>{ if(e.target._selecionado){ e.preventDefault(); e.target._selecionado = false; } }, true);
+document.addEventListener("focusout", (e)=>{ e.target._selecionado = false; });
 function confirmar(tit, html, txtOk, acao, classe){
   janela(tit, html, [{texto: "Cancelar", classe: "sec", id: "modal-cancelar"}, {texto: txtOk, classe: classe || "", id: "modal-ok", acao}]);
 }

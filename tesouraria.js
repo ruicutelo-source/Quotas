@@ -139,7 +139,8 @@ function desenharExtrato(){
   sel.innerHTML = `<optgroup label="Mês">${meses.map((m)=>`<option value="${m}">${rotMes(m)}</option>`).join("")}</optgroup>
     <optgroup label="Ano">${anos.map((a)=>`<option value="${a}">Ano ${a}</option>`).join("")}</optgroup><option value="todos">Todos</option>`;
   sel.value = perExt;
-  const {linhas, conta, saldoAbertura, saldoFecho} = linhasExtrato();
+  const ext = linhasExtrato(), {conta, saldoAbertura} = ext, q = $("t-ext-pesq").value;
+  const linhas = ext.linhas.filter((l)=>corresponde(q, l.descricao, l.categoria, l.conta, l.recibo, l.anulado ? "anulado" : ""));
   const ent = linhas.reduce((t, l)=>t + (l.valor > 0 ? l.valor : 0), 0), sai = linhas.reduce((t, l)=>t + (l.valor < 0 ? -l.valor : 0), 0);
   $("t-ext-tit").textContent = `entradas ${eur(ent)} · saídas ${eur(sai)}`;
   const cab = [{t: "Data"}, {t: "Descrição"}, {t: "Categoria", cl: "so-largo"}].concat(conta ? [] : [{t: "Conta", cl: "so-largo"}])
@@ -157,6 +158,7 @@ function desenharExtrato(){
 $("t-ext-per").onchange = ()=>{ perExt = $("t-ext-per").value; desenharExtrato(); };
 $("t-ext-conta").onchange = ()=>desenharExtrato();
 $("t-ext-tipo").onchange = ()=>desenharExtrato();
+$("t-ext-pesq").addEventListener("input", ()=>desenharExtrato());
 
 /* ---------- por pagar ---------- */
 function desenharPorPagar(){

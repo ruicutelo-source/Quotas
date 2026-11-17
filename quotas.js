@@ -161,7 +161,9 @@ function desenharQuadro(){
   const Y = anoQuadro, anoHoje = Number(hojeISO().slice(0, 4)), hoje = mesAtual();
   $("q-ano").textContent = Y;
   const est = $("q-quadro-estado").value;
-  const socios = D.socios.filter((s)=>est === "todos" || socioAtivo(s)).filter((s)=>mesISO(s.dataEntrada) <= Y + "-12").sort(porNumero);
+  const q = $("q-quadro-pesq").value;
+  const socios = D.socios.filter((s)=>est === "todos" || socioAtivo(s)).filter((s)=>mesISO(s.dataEntrada) <= Y + "-12")
+    .filter((s)=>corresponde(q, s.numero, s.nome)).sort(porNumero);
   const cel = (s, m, ob)=>{
     if(estaPago(s, m)) return `<td class="c ok" title="Pago">✓</td>`;
     if(s.pagoAte && m <= s.pagoAte && m >= mesISO(s.dataEntrada) && !tipoIsento(s.tipo)) return `<td class="c ok antes" title="Pago antes da app">✓</td>`;
@@ -179,7 +181,7 @@ function desenharQuadro(){
   const totAno = rec.reduce((a, b)=>a + b, 0);
   const rodape = `<tr class="total"><td></td><td>Recebido no mês · total ${eurCurto(totAno)}</td>${rec.map((v)=>`<td class="c pequeno">${v ? eurCurto(v) : ""}</td>`).join("")}</tr>`;
   $("q-quadro").innerHTML = socios.length ? `<table class="quadro"><thead><tr><th class="num">Nº</th><th>Nome</th>${MESES.map((m)=>`<th class="c">${m}</th>`).join("")}</tr></thead>
-    <tbody>${linhas.join("")}${rodape}</tbody></table>` : `<div class="vazio">Sem sócios neste ano.</div>`;
+    <tbody>${linhas.join("")}${rodape}</tbody></table>` : `<div class="vazio">${q ? "Nenhum sócio corresponde à pesquisa." : "Sem sócios neste ano."}</div>`;
   $("q-quadro").querySelectorAll("tr.clic").forEach((tr)=>tr.onclick = ()=>abrirSocio(tr.dataset.id));
   $("q-ano-seg").disabled = Y > anoHoje;
 }
@@ -187,6 +189,7 @@ const eurCurto = (c)=> (c / 100).toLocaleString("pt-PT", {maximumFractionDigits:
 $("q-ano-ant").onclick = ()=>{ anoQuadro--; desenharQuadro(); };
 $("q-ano-seg").onclick = ()=>{ anoQuadro++; desenharQuadro(); };
 $("q-quadro-estado").onchange = ()=>desenharQuadro();
+$("q-quadro-pesq").addEventListener("input", ()=>desenharQuadro());
 
 function desenharPagamentos(){
   const sel = $("q-pag-mes"), meses = [...new Set(D.pagamentos.map((p)=>mesISO(p.data)).concat(mesAtual()))].sort().reverse();
@@ -195,7 +198,9 @@ function desenharPagamentos(){
   sel.innerHTML = `<optgroup label="Mês">${meses.map((m)=>`<option value="${m}">${rotMes(m)}</option>`).join("")}</optgroup>
     <optgroup label="Ano">${anos.map((a)=>`<option value="${a}">Ano ${a}</option>`).join("")}</optgroup><option value="todos">Todos</option>`;
   sel.value = mesPag;
-  const pags = pagamentosDoPeriodo(mesPag)
+  const q = $("q-pag-pesq").value;
+  const pags = pagamentosDoPeriodo(mesPag).filter((p)=>{ const s = Idx.socio.get(p.socioId);
+      return corresponde(q, s ? s.nome : p.nomeSocio, s ? s.numero : p.numeroSocio, p.recibo ? p.recibo.txt : ""); })
     .sort((a, b)=>String(b.data).localeCompare(String(a.data)) || (b.criadoEm || 0) - (a.criadoEm || 0));
   const tot = pags.filter((p)=>!p.anulado).reduce((t, p)=>t + p.total, 0);
   $("q-pag-tit").textContent = `${pags.length} ${pags.length === 1 ? "pagamento" : "pagamentos"} · ${eur(tot)}`;
@@ -205,32 +210,35 @@ function desenharPagamentos(){
         <td>${esc(s ? s.nome : p.nomeSocio)} <span class="pequeno">(${s ? numTxt(s) : "nº " + (p.numeroSocio || "—")})</span></td>
         <td class="so-largo itens">${esc(refPag(p))}</td><td class="so-largo">${esc(p.forma)}</td>
         <td class="num">${p.anulado ? "Anulado" : eur(p.total)}</td></tr>`; }),
-    "Sem pagamentos neste período.");
+    q ? "Nenhum pagamento corresponde à pesquisa." : "Sem pagamentos neste período.");
   $("q-pag-lista").querySelectorAll("tr.clic").forEach((tr)=>tr.onclick = ()=>abrirPagamento(tr.dataset.id));
 }
 $("q-pag-mes").onchange = ()=>{ mesPag = $("q-pag-mes").value; desenharPagamentos(); };
+$("q-pag-pesq").addEventListener("input", ()=>desenharPagamentos());
 
 function desenharVinhetas(){
-  const lista = vinhetasPendentes();
+  const q = $("q-vin-pesq").value;
+  const lista = vinhetasPendentes().filter((p)=>{ const s = Idx.socio.get(p.socioId); return corresponde(q, s ? s.nome : p.nomeSocio, s ? s.numero : p.numeroSocio); });
   $("q-vin-tit").textContent = `${lista.length} por entregar`;
   $("q-vin-lista").innerHTML = tabela([{t: "Nº", num: true}, {t: "Sócio"}, {t: "Vinheta"}, {t: "Pago em"}, {t: "Recibo", cl: "so-largo"}, {t: ""}],
     lista.slice().sort((a, b)=>porNumero(Idx.socio.get(a.socioId) || {}, Idx.socio.get(b.socioId) || {})).map((p)=>{ const s = Idx.socio.get(p.socioId);
       return `<tr class="clic" data-id="${esc(p.id)}"><td class="num">${s ? s.numero || "—" : p.numeroSocio || "—"}</td><td>${esc(s ? s.nome : p.nomeSocio)}</td>
         <td><b>${esc(vinhetasTxt(p))}</b></td><td>${dataPT(p.data)}</td><td class="so-largo">${p.recibo ? esc(p.recibo.txt) : "—"}</td>
         <td>${eTes() ? `<button class="bt peq" data-vinheta="${esc(p.id)}">Entregue</button>` : ""}</td></tr>`; }),
-    "Não há vinhetas por entregar. 👍");
+    q ? "Nenhuma vinheta corresponde à pesquisa." : "Não há vinhetas por entregar. 👍");
   ligarVinhetas($("q-vin-lista"));
   $("q-vin-lista").querySelectorAll("tr.clic").forEach((tr)=>tr.onclick = ()=>abrirPagamento(tr.dataset.id));
 }
+
+$("q-vin-pesq").addEventListener("input", ()=>desenharVinhetas());
 
 /* ---------- receber pagamento ---------- */
 let R = null;   // {socioId, pode (pode pagar meses), joia (valor da joia por pagar ou 0)}
 function abrirReceber(socioId){
   if(!eTes()) return;
-  const socios = D.socios.slice().sort(porNumero);
   janela("Receber pagamento", `
     <label class="campo">Sócio</label>
-    <select id="r-socio"><option value="">— escolher sócio —</option>${socios.map((s)=>`<option value="${esc(s.id)}" ${s.id === socioId ? "selected" : ""}>${s.numero ? s.numero + " · " : ""}${esc(s.nome)}${socioAtivo(s) ? "" : " (inativo)"}</option>`).join("")}</select>
+    ${htmlEscolherSocio("r-socio", socioId)}
     <div id="r-info"></div>
     <div class="ficha-grid">
       <div><label class="campo">Data do pagamento</label><input type="date" id="r-data" value="${hojeISO()}"></div>
@@ -243,15 +251,16 @@ function abrirReceber(socioId){
     <div class="pvp" style="margin-top:12px"><span>Total a receber</span><span class="val" id="r-total">0,00 €</span></div>
     <div class="aviso" id="r-erro" style="display:none"></div>`,
   [{texto: "Cancelar", classe: "sec", id: "r-cancelar"}, {texto: "Gravar pagamento", id: "r-gravar", classe: "verde", manter: true, acao: gravarRecebimento}], true);
-  $("r-socio").onchange = ()=>carregarSocioReceber($("r-socio").value);
+  ligarEscolherSocio("r-socio", D.socios, (id)=>carregarSocioReceber(id));
   $("r-meses").addEventListener("input", atualizarReceber);
   carregarSocioReceber(socioId);
+  if(!socioId) $("r-socio-txt").focus();
 }
 function carregarSocioReceber(socioId){
   const s = socioId ? Idx.socio.get(socioId) : null;
   R = {socioId: s ? s.id : null, pode: false, joia: 0};
   $("r-erro").style.display = "none";
-  let info = "", meses = "";
+  let info = "";
   if(s){
     const pend = vinhetasPendentes(s.id);
     if(tipoIsento(s.tipo)) info = `<div class="aviso">O tipo «${esc(s.tipo)}» está isento de quotas.</div>`;
@@ -259,13 +268,12 @@ function carregarSocioReceber(socioId){
       <div style="margin-top:6px"><button class="bt sec peq" id="r-abrir-ficha">Abrir a ficha</button></div></div>`;
     else{
       R.pode = true;
-      const sit = situacao(s), ate = pagoAteAgora(s), qtd = sit.falta.filter((o)=>o.tipo === "Quota").length;
+      const sit = situacao(s), ate = pagoAteAgora(s);
       const ini = mesISO(s.dataEntrada);
       R.joia = (!s.pagoAte || s.pagoAte < ini) && !estaPago(s, "joia") ? valoresAno(Number(ini.slice(0, 4))).joia || 0 : 0;
       info = `<div class="r-estado"><span>Quotas pagas até: <b>${ate ? rotMes(ate) : "ainda nada pago"}</b></span>${sit.divida ? "" : `<span class="chip verde">Quotas em dia</span>`}</div>`
         + (sit.divida ? `<div class="atraso">QUOTAS EM ATRASO: <b>${esc(resumoFalta(sit.falta))}</b> — <b>${eur(sit.divida)}</b></div>` : "")
         + (R.joia ? `<label class="r-joia"><input type="checkbox" id="r-joia" checked style="width:22px;height:22px"> Joia de inscrição <b>${eur(R.joia)}</b></label>` : "");
-      if(qtd) meses = String(qtd);
     }
     info += htmlVinhetasPend(pend);
   }
@@ -273,7 +281,7 @@ function carregarSocioReceber(socioId){
   ligarVinhetas($("r-info"));
   if($("r-abrir-ficha")) $("r-abrir-ficha").onclick = ()=>{ fecharJanela(); abrirSocio(s.id); };
   if($("r-joia")) $("r-joia").onchange = atualizarReceber;
-  $("r-meses").value = meses;
+  $("r-meses").value = "";       // vem sempre vazio: escreve-se o nº de meses que o sócio paga
   $("r-meses").disabled = !R.pode;
   atualizarReceber();
 }

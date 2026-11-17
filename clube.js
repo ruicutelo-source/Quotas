@@ -125,10 +125,9 @@ function abrirCargo(id){
     <label class="campo">Órgão</label><select id="cg-orgao">${ORGAOS.map((o)=>`<option ${c && c.orgao === o ? "selected" : ""}>${o}</option>`).join("")}</select>
     <label class="campo">Cargo</label><input type="text" id="cg-cargo" list="cg-sug" value="${esc(c ? c.cargo : "")}">
     <datalist id="cg-sug">${CARGOS_SUGERIDOS.map((x)=>`<option value="${x}">`).join("")}</datalist>
-    <label class="campo">Sócio</label><select id="cg-socio"><option value="">— não é sócio / escrever o nome —</option>
-      ${socios.map((s)=>`<option value="${esc(s.id)}" ${c && c.socioId === s.id ? "selected" : ""}>${esc(s.nome)} (${numTxt(s)})</option>`).join("")}</select>
+    <label class="campo">Sócio</label>${htmlEscolherSocio("cg-socio", c && c.socioId, "Escreva o nº ou o nome (deixe vazio se não for sócio)")}
     <label class="campo">Nome (se não for sócio)</label><input type="text" id="cg-nome" value="${esc(c && !c.socioId ? c.nome : "")}">
-    <label class="campo">Mandato</label><input type="text" id="cg-mandato" placeholder="ex.: 2025-2027" value="${esc(c ? c.mandato : ultimoMandato)}">
+    <label class="campo">Mandato</label><input type="text" id="cg-mandato" placeholder="${esc(ultimoMandato ? "ex.: " + ultimoMandato : "ex.: 2025-2027")}" value="${esc(c ? c.mandato : "")}">
     <div class="aviso" id="cg-erro" style="display:none"></div>`,
   [...(c ? [{texto: "Apagar", classe: "sec verm-txt", id: "cg-apagar", acao: ()=>gravar([{tipo: "del", col: "cargos", id: c.id}]).then(()=>toast("Cargo apagado."))}] : []),
    {texto: "Cancelar", classe: "sec"},
@@ -141,6 +140,7 @@ function abrirCargo(id){
      gravar([{tipo: "set", col: "cargos", id: c ? c.id : "C" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), dados: d}]);
      toast("Cargo gravado.");
    }}]);
+  ligarEscolherSocio("cg-socio", socios, null);
 }
 
 /* ---------- listas ---------- */

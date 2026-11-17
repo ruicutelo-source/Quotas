@@ -111,7 +111,7 @@ function abrirSocio(id){
     </div>
     <div class="ficha-grid cresce">
       <div><label class="campo">Nº de sócio</label><input type="text" id="f-numero" maxlength="7" autocomplete="off"
-        value="${novo ? proximoNumero() : (s.numero || "")}" placeholder="sem nº" ${podeNum ? "" : "disabled"}></div>
+        value="${novo ? "" : (s.numero || "")}" placeholder="${novo ? "automático: " + proximoNumero() : "sem nº"}" ${podeNum ? "" : "disabled"}></div>
       <div class="s2"><label class="campo">Nome completo *</label><input type="text" id="f-nome" value="${v("nome")}" ${dis}></div>
       <div><label class="campo">Data de nascimento</label><input type="date" id="f-nasc" value="${v("dataNascimento")}" ${dis}></div>
       <div class="s2"><label class="campo">Nome abreviado</label><input type="text" id="f-abrev" value="${v("nomeAbreviado")}" placeholder="ex.: Rui Pinto" ${dis}></div>
@@ -177,12 +177,13 @@ function desenharAgregado(){
       <span class="chip">${esc(a.relacao)}</span>${pode ? `<button class="lixo" data-i="${i}" title="Retirar">✕</button>` : ""}</div>`; });
   const outros = D.socios.filter((o)=>o.id !== F.id && !F.agregado.some((a)=>a.id === o.id)).sort((a, b)=>porTexto(a.nome, b.nome));
   const add = pode ? `<div class="linha quebra" style="margin-top:6px">
-      <select id="f-ag-socio" class="cresce" style="min-width:200px"><option value="">— escolher sócio —</option>${outros.map((o)=>`<option value="${esc(o.id)}">${esc(o.nome)} (${numTxt(o)})</option>`).join("")}</select>
+      <div class="cresce" style="min-width:200px">${htmlEscolherSocio("f-ag-socio", "")}</div>
       <select id="f-ag-rel" style="width:auto">${RELACOES.map((r)=>`<option>${esc(r)}</option>`).join("")}</select>
       <button class="bt sec peq" id="f-ag-add">Adicionar</button></div>
       <div class="nota">A relação é a da pessoa escolhida em relação a este sócio (ex.: «Filho(a)» = é filho deste sócio). A ficha do familiar é atualizada ao gravar.</div>` : "";
   $("f-agregado").innerHTML = `<div class="lista-itens">${linhas.join("") || `<div class="vazio" style="padding:6px">Sem familiares ligados.</div>`}</div>${add}`;
   $("f-agregado").querySelectorAll("button.lixo").forEach((b)=>b.onclick = ()=>{ F.agregado.splice(Number(b.dataset.i), 1); desenharAgregado(); });
+  if(pode) ligarEscolherSocio("f-ag-socio", outros, null);
   if(pode) $("f-ag-add").onclick = ()=>{
     const id = $("f-ag-socio").value; if(!id) return;
     F.agregado.push({id, relacao: $("f-ag-rel").value}); desenharAgregado();
@@ -201,7 +202,8 @@ function gravarSocio(){
   if(numero === undefined){ erros.push("Nº de sócio inválido (ex.: 12 ou 203A)."); marcar("f-numero"); }
   else{
     // só um sócio novo ou reativado recebe logo o nº seguinte (os que já estão sem nº esperam pela renumeração)
-    if(numero === null && ativo && (novo || !socioAtivo(antigo))) numero = proximoNumero();
+    // (no sócio novo o campo vem vazio = nº automático, como antes vinha o nº sugerido já escrito)
+    if(numero === null && (novo || (ativo && !socioAtivo(antigo)))) numero = proximoNumero();
     const dono = numero !== null && donoDoNumero(numero, id);
     if(dono){ erros.push(`O nº ${numero} já pertence a ${dono.nome}.`); marcar("f-numero"); }
   }
@@ -355,4 +357,47 @@ function prepararFoto(ficheiro){
 function abrirImagem(ficheiro){
   return new Promise((ok, erro)=>{ const im = new Image(), url = URL.createObjectURL(ficheiro);
     im.onload = ()=>{ URL.revokeObjectURL(url); ok(im); }; im.onerror = ()=>{ URL.revokeObjectURL(url); erro(); }; im.src = url; });
+}
+
+/* ---------- escolher um sócio a escrever o nº ou o nome (em vez de uma lista com centenas de nomes) ----------
+   Fica um campo de texto («id-txt») e um campo escondido («id») com o código do sócio escolhido. */
+const rotSocio = (s)=> (s.numero ? s.numero + " · " : "") + s.nome;
+function htmlEscolherSocio(id, selId, ph){
+  const s = selId ? Idx.socio.get(selId) : null;
+  return `<div class="esc-socio"><input type="search" id="${id}-txt" autocomplete="off" placeholder="${esc(ph || "Escreva o nº ou o nome do sócio…")}" value="${s ? esc(rotSocio(s)) : ""}">
+    <input type="hidden" id="${id}" value="${s ? esc(s.id) : ""}"><div class="esc-lista" id="${id}-lista" style="display:none"></div></div>`;
+}
+function procurarSocios(lista, txt){
+  const q = norm(txt); if(!q) return [];
+  const toks = q.split(/\s+/), numQ = /^\d+[a-z]?$/.test(q) ? q : null;
+  const exato = (s)=> numQ && String(s.numero || "").toLowerCase() === numQ ? 0 : 1;
+  return lista.filter((s)=> (numQ && String(s.numero || "").toLowerCase().startsWith(numQ)) || toks.every((t)=>norm(s.nome).includes(t)))
+    .sort((a, b)=>exato(a) - exato(b) || porNumero(a, b)).slice(0, 40);
+}
+function ligarEscolherSocio(id, lista, aoEscolher){
+  const txt = $(id + "-txt"), hid = $(id), box = $(id + "-lista");
+  let res = [], sel = 0;
+  const escolher = (s)=>{ hid.value = s.id; txt.value = rotSocio(s); box.style.display = "none"; if(aoEscolher) aoEscolher(s.id); };
+  const desenhar = ()=>{
+    box.innerHTML = res.length ? res.map((s, i)=>`<div class="esc-op ${i === sel ? "sel" : ""}" data-i="${i}">${s.numero ? `<b>${esc(s.numero)}</b> · ` : ""}${esc(s.nome)}${socioAtivo(s) ? "" : ` <span class="pequeno">(inativo)</span>`}</div>`).join("")
+      : `<div class="esc-vazio">Nenhum sócio encontrado.</div>`;
+    box.style.display = txt.value.trim() ? "block" : "none";
+    box.querySelectorAll(".esc-op").forEach((d)=>d.onmousedown = (e)=>{ e.preventDefault(); escolher(res[Number(d.dataset.i)]); });
+    const atual = box.querySelector(".esc-op.sel"); if(atual) atual.scrollIntoView({block: "nearest"});
+  };
+  txt.addEventListener("input", ()=>{
+    if(hid.value){ hid.value = ""; if(aoEscolher) aoEscolher(""); }
+    res = procurarSocios(lista, txt.value); sel = 0; desenhar();
+  });
+  txt.addEventListener("keydown", (e)=>{
+    if(box.style.display === "none") return;
+    if(e.key === "ArrowDown"){ e.preventDefault(); sel = Math.min(sel + 1, res.length - 1); desenhar(); }
+    else if(e.key === "ArrowUp"){ e.preventDefault(); sel = Math.max(sel - 1, 0); desenhar(); }
+    else if(e.key === "Enter"){ e.preventDefault(); if(res[sel]) escolher(res[sel]); }
+    else if(e.key === "Escape"){ e.preventDefault(); box.style.display = "none"; }
+  });
+  // ao sair do campo a lista fecha (com um pequeno atraso para o clique na lista contar); se voltar logo ao campo, não fecha
+  let tFecha = null;
+  txt.addEventListener("blur", ()=>{ tFecha = setTimeout(()=>{ if(document.activeElement !== txt) box.style.display = "none"; }, 150); });
+  txt.addEventListener("focus", ()=>clearTimeout(tFecha));
 }

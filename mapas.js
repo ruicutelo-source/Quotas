@@ -12,7 +12,7 @@ function imprimir(titulo, subtitulo, corpo, paisagem){
     ${corpo}</div>`;
   $("estilo-pagina").textContent = `@page{size:A4 ${paisagem ? "landscape" : "portrait"};margin:11mm}`;
   document.body.classList.add("a-imprimir");
-  const fim = ()=>{ document.body.classList.remove("a-imprimir"); window.removeEventListener("afterprint", fim); };
+  const fim = ()=>{ document.body.classList.remove("a-imprimir"); window.removeEventListener("afterprint", fim); limparPesquisas(); };
   window.addEventListener("afterprint", fim);
   setTimeout(()=>window.print(), 80);     // dá tempo a desenhar o logótipo
 }

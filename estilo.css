@@ -191,3 +191,9 @@ td.verde{color:var(--verde)}
 /* versão de testes (config.js vazio): cabeçalho cor de laranja */
 body.modo-teste header{background:#B45309}
 body.modo-teste header .marca::after{content:"VERSÃO DE TESTES";font-size:11px;font-weight:800;background:#fff;color:#B45309;border-radius:6px;padding:2px 7px;white-space:nowrap}
+/* escolher sócio a escrever o nº ou o nome */
+.esc-socio{position:relative}
+.esc-lista{position:absolute;left:0;right:0;top:100%;z-index:20;background:#fff;border:1px solid var(--linha);border-radius:8px;box-shadow:0 6px 18px rgba(0,0,0,.15);max-height:260px;overflow-y:auto;margin-top:2px}
+.esc-op{padding:9px 12px;cursor:pointer;font-size:15px;border-bottom:1px solid #F0F2F5}
+.esc-op:hover,.esc-op.sel{background:var(--azul-cl)}
+.esc-vazio{padding:9px 12px;color:var(--cinz);font-size:14px}
