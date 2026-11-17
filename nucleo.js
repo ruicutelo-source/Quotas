@@ -3,16 +3,9 @@
    NÚCLEO — configuração, base de dados, login, perfis e navegação
    ===================================================================== */
 
-/* Projeto Firebase do clube. Com os campos vazios a app funciona em MODO LOCAL
-   (dados só neste aparelho), que só serve para testes. */
-const FIREBASE_CONFIG = {
-  apiKey: "AIzaSyDtd4jnnje--bz72YDFhc8EMS6mUKD_QdY",
-  authDomain: "quotas-clube.firebaseapp.com",
-  projectId: "quotas-clube",
-  storageBucket: "quotas-clube.firebasestorage.app",
-  messagingSenderId: "1042881769887",
-  appId: "1:1042881769887:web:6b3796aa2b52ceae078daa"
-};
+/* A ligação à base de dados (FIREBASE_CONFIG) está no ficheiro config.js:
+   - versão do clube: config.js com os dados do projeto Firebase do clube;
+   - versão de testes: config.js vazio → MODO LOCAL (dados só neste computador, sem login). */
 const VERSAO_APP = "5.0";
 
 /* Administrador principal: tem sempre acesso total, mesmo sem ficha em Utilizadores.
@@ -335,6 +328,8 @@ function arrancar(){
       .then(()=>Nuvem.iniciar())
       .catch(()=>aviso("Não foi possível carregar o Firebase. Na primeira utilização o aparelho precisa de internet."));
   }else{
+    // versão de testes: cabeçalho cor de laranja com a indicação, para nunca se confundir com a do clube
+    document.body.classList.add("modo-teste");
     Store.iniciar();
   }
   if(navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(()=>{});

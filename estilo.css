@@ -188,3 +188,6 @@ td.verde{color:var(--verde)}
 .com-ava{display:flex;align-items:center;gap:10px}
 .ava{width:34px;height:34px;border-radius:50%;object-fit:cover;flex:0 0 34px;background:#DCE3EE;color:#5B6B7F;font-size:12px;font-weight:700;display:inline-flex;align-items:center;justify-content:center}
 .foto-zona .bt{white-space:nowrap;padding-left:10px;padding-right:10px}.foto-zona{flex-basis:150px}
+/* versão de testes (config.js vazio): cabeçalho cor de laranja */
+body.modo-teste header{background:#B45309}
+body.modo-teste header .marca::after{content:"VERSÃO DE TESTES";font-size:11px;font-weight:800;background:#fff;color:#B45309;border-radius:6px;padding:2px 7px;white-space:nowrap}
