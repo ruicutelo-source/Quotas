@@ -82,29 +82,72 @@ let nomeUtilizador = "";       // nome de quem está a usar a app (vai nos recib
 let renderAgendado = false;
 function agendarRender(){ if(renderAgendado) return; renderAgendado = true; requestAnimationFrame(()=>{ renderAgendado = false; render(); }); }
 
-/* ---------- modo local (testes): localStorage ---------- */
+/* ---------- modo local (versão de testes): base de dados interna do Chrome (IndexedDB) ----------
+   Grava tudo no próprio computador, sem limite prático de espaço (aguenta todos os sócios e fotos).
+   Cada coleção é guardada inteira numa linha; as fotos ficam uma a uma (para não regravar todas de cada vez). */
 const Local = {
-  CHAVE: "quotas_app_v1_dados",
-  ler(){ try{ const t = localStorage.getItem(this.CHAVE); if(t) return JSON.parse(t); }catch(e){} return null; },
-  gravar(){ try{ localStorage.setItem(this.CHAVE, JSON.stringify(D)); }catch(e){ aviso("Não foi possível guardar os dados neste aparelho: " + e.message); } },
+  BD: "quotas_app_testes", CHAVE_ANTIGA: "quotas_app_v1_dados", db: null,
+  canal: typeof BroadcastChannel !== "undefined" ? new BroadcastChannel("quotas_app_testes") : null,
+  abrir(){
+    return new Promise((ok, erro)=>{
+      const r = indexedDB.open(this.BD, 1);
+      r.onupgradeneeded = ()=>{ const db = r.result; db.createObjectStore("colecoes"); db.createObjectStore("fotos"); };
+      r.onsuccess = ()=>ok(r.result); r.onerror = ()=>erro(r.error);
+    });
+  },
+  tx(stores, modo, fn){
+    return new Promise((ok, erro)=>{ const t = this.db.transaction(stores, modo); fn(t); t.oncomplete = ()=>ok(); t.onerror = t.onabort = ()=>erro(t.error); });
+  },
+  pedir(req){ return new Promise((ok, erro)=>{ req.onsuccess = ()=>ok(req.result); req.onerror = ()=>erro(req.error); }); },
+  carregar(){
+    const t = this.db.transaction(["colecoes", "fotos"], "readonly");
+    const cols = COLS.filter((c)=>c !== "fotos");
+    return Promise.all([...cols.map((c)=>this.pedir(t.objectStore("colecoes").get(c))), this.pedir(t.objectStore("fotos").getAll())])
+      .then((res)=>{ cols.forEach((c, i)=>{ D[c] = res[i] || []; }); D.fotos = res[res.length - 1] || []; reindexar(); });
+  },
+  /* grava as coleções mexidas (e as fotos uma a uma) */
+  guardar(cols, fotosMexidas){
+    const lista = [...cols].filter((c)=>c !== "fotos");
+    return this.tx(["colecoes", "fotos"], "readwrite", (t)=>{
+      for(const c of lista) t.objectStore("colecoes").put(D[c], c);
+      for(const id of fotosMexidas){ const f = D.fotos.find((x)=>x.id === id);
+        if(f) t.objectStore("fotos").put(f, id); else t.objectStore("fotos").delete(id); }
+    });
+  },
+  /* passa para a base de dados interna os dados de testes antigos (versões até à 5.0, guardados no localStorage) */
+  migrarAntigo(){
+    let d = null; try{ const t = localStorage.getItem(this.CHAVE_ANTIGA); if(t) d = JSON.parse(t); }catch(e){}
+    if(!d) return Promise.resolve();
+    for(const c of COLS) D[c] = d[c] || [];
+    return this.guardar(new Set(COLS), new Set(D.fotos.map((f)=>f.id))).then(()=>{ try{ localStorage.removeItem(this.CHAVE_ANTIGA); }catch(e){} });
+  },
   iniciar(){
-    const d = this.ler(); if(d) for(const c of COLS) D[c] = d[c] || [];
-    reindexar();
-    const p = new URLSearchParams(location.search).get("perfil");
-    nomeUtilizador = "Modo local";
-    entrouUtilizador("modo-local", PERFIS.find((x)=>x.toLowerCase() === String(p).toLowerCase()) || "Administrador");
-    if(!D.config.find((c)=>c.id === "listas")) this.aplicar([{tipo: "set", col: "config", id: "listas", dados: {...LISTAS_INICIAIS}}]);
-    window.addEventListener("storage", (e)=>{ if(e.key === this.CHAVE){ const n = this.ler(); if(n){ for(const c of COLS) D[c] = n[c] || []; reindexar(); render(); } } });
+    return this.abrir().then((db)=>{ this.db = db; return this.carregar(); })
+      .then(()=> D.socios.length || D.config.length ? null : this.migrarAntigo())
+      .then(()=>{
+        reindexar();
+        const p = new URLSearchParams(location.search).get("perfil");
+        nomeUtilizador = "Modo local";
+        entrouUtilizador("modo-local", PERFIS.find((x)=>x.toLowerCase() === String(p).toLowerCase()) || "Administrador");
+        if(!D.config.find((c)=>c.id === "listas")) this.aplicar([{tipo: "set", col: "config", id: "listas", dados: {...LISTAS_INICIAIS}}]);
+        // outro separador com a app aberta gravou: volta a ler
+        if(this.canal) this.canal.onmessage = ()=>this.carregar().then(()=>render());
+      })
+      .catch((e)=>aviso("Não foi possível abrir a base de dados interna deste computador: " + (e && e.message ? e.message : e)));
   },
   aplicar(ops){
+    const cols = new Set(), fotos = new Set();
     for(const o of ops){
       const arr = D[o.col], i = arr.findIndex((x)=>x.id === o.id);
       if(o.tipo === "set"){ const obj = {...o.dados, id: o.id}; if(i >= 0) arr[i] = obj; else arr.push(obj); }
       else if(o.tipo === "update"){ if(i >= 0) Object.assign(arr[i], o.dados); }
       else if(o.tipo === "del"){ if(i >= 0) arr.splice(i, 1); }
+      cols.add(o.col); if(o.col === "fotos") fotos.add(o.id);
     }
-    reindexar(); this.gravar(); agendarRender();
-    return Promise.resolve();
+    reindexar(); agendarRender();
+    return this.guardar(cols, fotos)
+      .then(()=>{ if(this.canal) this.canal.postMessage("mudou"); })
+      .catch((e)=>{ aviso("Não foi possível guardar os dados neste computador: " + (e && e.message ? e.message : e)); throw e; });
   },
   numerarRecibo(id){
     const p = D.pagamentos.find((x)=>x.id === id);
