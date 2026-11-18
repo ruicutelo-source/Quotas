@@ -6,7 +6,7 @@
 /* A ligação à base de dados (FIREBASE_CONFIG) está no ficheiro config.js:
    - versão do clube: config.js com os dados do projeto Firebase do clube;
    - versão de testes: config.js vazio → MODO LOCAL (dados só neste computador, sem login). */
-const VERSAO_APP = "5.3";
+const VERSAO_APP = "5.4";
 
 /* Administrador principal: tem sempre acesso total, mesmo sem ficha em Utilizadores.
    Tem de ser igual ao email escrito nas regras do Firestore. */
