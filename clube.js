@@ -146,15 +146,12 @@ function abrirCargo(id){
 /* ---------- listas ---------- */
 const LISTAS_DEF = [
   {chave: "tiposSocio", el: "ls-tipos", marca: {campo: "tiposIsentos", rot: "isento"}, uso: "socios"},
-  {chave: "formasPagamento", el: "ls-formas", marca: {campo: "formasCaixa", rot: "caixa"}},
-  {chave: "categoriasReceita", el: "ls-catrec", uso: "Receita"},
-  {chave: "categoriasDespesa", el: "ls-catdes", uso: "Despesa"}
+  {chave: "formasPagamento", el: "ls-formas"}
 ];
 /* quantas fichas/movimentos usam cada valor (não se pode apagar um valor em uso) */
 function usosLista(def){
   const m = new Map(), soma = (k)=>m.set(k, (m.get(k) || 0) + 1);
   if(def.uso === "socios") D.socios.forEach((s)=>soma(s.tipo));
-  else if(def.uso) D.movimentos.filter((x)=>x.tipo === def.uso).forEach((x)=>soma(x.categoria));
   return m;
 }
 /* ao mudar o nome de um valor, muda também nas fichas/movimentos que o usam */
@@ -263,7 +260,7 @@ function descarregarCopia(){
 $("clb-limpar").onclick = ()=>{
   if(MODO_FIREBASE && Store.utilizador() !== ADMIN_PRINCIPAL) return;
   const n = {socios: D.socios.length, pagamentos: D.pagamentos.length, cargos: D.cargos.length, movimentos: D.movimentos.length, entidades: D.entidades.length};
-  janela("Limpar dados", `<p>Vai apagar <b>${n.socios}</b> sócio(s), <b>${n.pagamentos}</b> pagamento(s), <b>${n.cargos}</b> cargo(s), <b>${n.movimentos}</b> movimento(s) de tesouraria e <b>${n.entidades}</b> fornecedor(es), com os NIF e NIB. A numeração dos recibos volta ao início.
+  janela("Limpar dados", `<p>Vai apagar <b>${n.socios}</b> sócio(s), <b>${n.pagamentos}</b> pagamento(s), <b>${n.cargos}</b> cargo(s), <b>${n.movimentos}</b> saída(s) de tesouraria e <b>${n.entidades}</b> fornecedor(es), com os NIF e NIB. A numeração dos recibos volta ao início.
       <b>Não se pode desfazer.</b></p>
     <p class="nota">Primeiro é descarregada uma cópia de tudo (ficheiro <b>Quotas_copia_….json</b> nas Transferências). Guarde-a.</p>
     <label class="campo">Para confirmar, escreva APAGAR</label><input type="text" id="limpar-conf" autocomplete="off">

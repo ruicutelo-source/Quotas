@@ -106,68 +106,48 @@
   <div class="abas" id="tes-abas">
     <button data-aba="painel" class="ativo">Painel</button>
     <button data-aba="extrato">Movimentos</button>
-    <button data-aba="porpagar">Por pagar</button>
-    <button data-aba="fornecedores">Fornecedores</button>
-    <button data-aba="contas">Saldos iniciais</button>
+    <button data-aba="contas">Saldo inicial</button>
   </div>
   <div class="linha quebra" id="tes-novos" style="margin:0 0 10px">
-    <button class="bt verde" id="tes-receita">+ Receita</button>
-    <button class="bt verm" id="tes-despesa">+ Despesa</button>
-    <button class="bt sec" id="tes-transf">⇄ Transferência</button>
+    <button class="bt verm" id="tes-saida">− Saída de valores</button>
   </div>
 
   <div class="aba ativo" id="aba-t-painel">
-    <div class="grelha g4">
-      <div class="cartao kpi"><div class="rot">Saldo total</div><div class="val azul" id="t-saldo"></div></div>
-      <div class="cartao kpi"><div class="rot">Caixa (dinheiro)</div><div class="val azul" id="t-caixa"></div></div>
-      <div class="cartao kpi"><div class="rot">Banco</div><div class="val azul" id="t-banco"></div></div>
-      <div class="cartao kpi clic" id="t-pp-cartao"><div class="rot">Despesas por pagar</div><div class="val verm" id="t-pp"></div><div class="pequeno" id="t-pp-venc"></div></div>
+    <div class="grelha g3">
+      <div class="cartao kpi"><div class="rot">Saldo atual</div><div class="val azul" id="t-saldo"></div></div>
+      <div class="cartao kpi"><div class="rot">Entradas em <span class="t-ano-txt"></span> (quotas e joias)</div><div class="val verde" id="t-entradas"></div></div>
+      <div class="cartao kpi"><div class="rot">Saídas em <span class="t-ano-txt"></span></div><div class="val verm" id="t-saidas"></div></div>
     </div>
     <div class="barra" style="margin-top:12px">
       <button class="bt sec peq" id="t-ano-ant">◀</button><b id="t-ano" style="font-size:18px;min-width:50px;text-align:center"></b><button class="bt sec peq" id="t-ano-seg">▶</button>
-      <div class="cresce"></div><button class="bt sec" id="t-relatorio">Relatório de contas</button>
+      <div class="cresce"></div><button class="bt sec" id="t-relatorio">Relatório do ano</button>
     </div>
     <div class="bloco"><div class="tit navy"><span>MÊS A MÊS</span></div><div class="rolar" id="t-meses"></div></div>
-    <div class="grelha g2" style="margin-top:12px">
-      <div class="bloco"><div class="tit verde"><span>RECEITAS POR CATEGORIA</span></div><div id="t-cat-rec"></div></div>
-      <div class="bloco"><div class="tit verm"><span>DESPESAS POR CATEGORIA</span></div><div id="t-cat-des"></div></div>
-    </div>
     <div class="nota" id="t-nota-inicio"></div>
+    <div class="nota">As entradas são as quotas e joias recebidas em Quotas. As saídas registam-se aqui. A contabilidade do clube é feita noutra app.</div>
   </div>
 
   <div class="aba" id="aba-t-extrato">
     <div class="barra">
-      <input type="search" id="t-ext-pesq" placeholder="Pesquisar descrição, categoria, recibo…" style="flex:1;min-width:160px">
+      <input type="search" id="t-ext-pesq" placeholder="Pesquisar descrição, motivo, recibo…" style="flex:1;min-width:160px">
       <select id="t-ext-per" style="width:auto;min-width:160px"></select>
-      <select id="t-ext-conta" style="width:auto"><option value="">Caixa e Banco</option><option>Caixa</option><option>Banco</option></select>
-      <select id="t-ext-tipo" style="width:auto"><option value="">Todos os tipos</option><option>Quotas</option><option>Receita</option><option>Despesa</option><option>Transferência</option></select>
+      <select id="t-ext-tipo" style="width:auto"><option value="">Entradas e saídas</option><option value="Entrada">Só entradas</option><option value="Saída">Só saídas</option></select>
       <button class="bt sec" id="t-ext-imprimir">Imprimir</button>
     </div>
     <div class="bloco"><div class="tit navy"><span>MOVIMENTOS</span><span id="t-ext-tit"></span></div><div class="rolar" id="t-ext"></div></div>
-    <div class="nota">Escolha uma conta (Caixa ou Banco) para ver o saldo linha a linha. As quotas vêm dos pagamentos registados em Quotas.</div>
-  </div>
-
-  <div class="aba" id="aba-t-porpagar">
-    <div class="bloco"><div class="tit verm"><span>DESPESAS POR PAGAR</span><span id="t-pp-tit"></span></div><div class="rolar" id="t-pp-lista"></div></div>
-    <div class="nota">Uma despesa por pagar só sai do saldo quando for paga.</div>
-  </div>
-
-  <div class="aba" id="aba-t-fornecedores">
-    <div class="barra"><input type="search" id="t-forn-pesq" placeholder="Pesquisar fornecedor…"><button class="bt" id="t-forn-novo">+ Novo fornecedor</button></div>
-    <div class="bloco"><div class="tit navy"><span>FORNECEDORES E ENTIDADES</span></div><div class="rolar" id="t-forn-lista"></div></div>
+    <div class="nota">Toque numa entrada para ver o pagamento do sócio, ou numa saída para a ver ou anular.</div>
   </div>
 
   <div class="aba" id="aba-t-contas">
     <div class="cartao" style="max-width:560px">
-      <h3 style="margin-top:0">Saldos no início</h3>
-      <div class="nota">O dinheiro que o clube tinha no dia em que começou a usar a app. Os movimentos anteriores a essa data não contam para o saldo.</div>
-      <label class="campo">Data de início</label><input type="date" id="t-ini-data">
+      <h3 style="margin-top:0">Saldo inicial (opcional)</h3>
+      <div class="nota">O dinheiro que o clube tinha no dia em que começou a usar a app. Os movimentos anteriores a essa data não contam para o saldo. Pode deixar o valor vazio (0,00 €).</div>
       <div class="grelha g2" style="gap:10px">
-        <div><label class="campo">Caixa (€)</label><input type="text" id="t-ini-caixa" inputmode="decimal"></div>
-        <div><label class="campo">Banco (€)</label><input type="text" id="t-ini-banco" inputmode="decimal"></div>
+        <div><label class="campo">Data de início</label><input type="date" id="t-ini-data"></div>
+        <div><label class="campo">Saldo inicial (€)</label><input type="text" id="t-ini-valor" inputmode="decimal" placeholder="0,00"></div>
       </div>
       <button class="bt" id="t-ini-gravar" style="margin-top:12px">Gravar</button>
-      <div class="nota" id="t-ini-so-ler" style="display:none">Só o Administrador pode alterar os saldos iniciais.</div>
+      <div class="nota" id="t-ini-so-ler" style="display:none">Só o Administrador pode alterar o saldo inicial.</div>
     </div>
   </div>
 </section>
@@ -243,20 +223,16 @@
         <div class="linha" style="padding:10px" id="ls-tipos-add"><input type="text" id="ls-tipos-novo" placeholder="Novo tipo de sócio"><button class="bt peq" id="ls-tipos-bt">Adicionar</button></div></div>
       <div class="bloco"><div class="tit navy"><span>FORMAS DE PAGAMENTO</span></div><div id="ls-formas"></div>
         <div class="linha" style="padding:10px" id="ls-formas-add"><input type="text" id="ls-formas-novo" placeholder="Nova forma de pagamento"><button class="bt peq" id="ls-formas-bt">Adicionar</button></div></div>
-      <div class="bloco"><div class="tit verde"><span>CATEGORIAS DE RECEITA</span></div><div id="ls-catrec"></div>
-        <div class="linha" style="padding:10px" id="ls-catrec-add"><input type="text" id="ls-catrec-novo" placeholder="Nova categoria de receita"><button class="bt peq" id="ls-catrec-bt">Adicionar</button></div></div>
-      <div class="bloco"><div class="tit verm"><span>CATEGORIAS DE DESPESA</span></div><div id="ls-catdes"></div>
-        <div class="linha" style="padding:10px" id="ls-catdes-add"><input type="text" id="ls-catdes-novo" placeholder="Nova categoria de despesa"><button class="bt peq" id="ls-catdes-bt">Adicionar</button></div></div>
     </div>
     <div class="nota">Mudar o nome de um valor muda-o também em todas as fichas e movimentos. Um valor em uso não pode ser apagado.
-      Os tipos marcados como <b>isento</b> não pagam quotas nem joia. As formas marcadas como <b>caixa</b> entram no dinheiro em caixa; as outras entram no banco.</div>
+      Os tipos marcados como <b>isento</b> não pagam quotas nem joia. As formas de pagamento servem para os pagamentos dos sócios e para as saídas de valores.</div>
   </div>
 
   <div class="aba" id="aba-copias">
     <div class="grelha g2">
       <div class="cartao">
         <h3 style="margin-top:0">Exportar para Excel</h3>
-        <div class="nota">Um ficheiro .xlsx com as folhas Sócios, Pagamentos, Tesouraria, Fornecedores e Contas do ano. Abre no Excel 2016 ou mais recente.</div>
+        <div class="nota">Um ficheiro .xlsx com as folhas Sócios, Pagamentos, Saídas e Tesouraria do ano. Abre no Excel 2016 ou mais recente.</div>
         <button class="bt" id="cp-excel">Exportar para Excel</button>
       </div>
       <div class="cartao" id="cp-json-cartao">

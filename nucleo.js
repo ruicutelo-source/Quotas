@@ -6,7 +6,7 @@
 /* A ligação à base de dados (FIREBASE_CONFIG) está no ficheiro config.js:
    - versão do clube: config.js com os dados do projeto Firebase do clube;
    - versão de testes: config.js vazio → MODO LOCAL (dados só neste computador, sem login). */
-const VERSAO_APP = "5.2";
+const VERSAO_APP = "5.3";
 
 /* Administrador principal: tem sempre acesso total, mesmo sem ficha em Utilizadores.
    Tem de ser igual ao email escrito nas regras do Firestore. */
@@ -31,9 +31,9 @@ const PERFIS = ["Administrador", "Tesoureiro", "Consulta"];
                          meses, total, obs, anulado:{por, em, motivo}|null, recebidoPorNome,
                          vinhetas:["2027", ...], vinhetaEntregue:{por, nome, em}|null,   (subtotal/desconto: versões 1–4)
                          recibo:{ano, num, txt:"2026/0001", em}|null, criadoPor, criadoEm}
-   movimentos/{id}:     {tipo: Receita|Despesa|Transferência, data, categoria, descricao, valor, conta (Caixa|Banco), contaDestino,
-                         entidadeId, entidadeNome, documento, estado (pago|porPagar), prazo, dataPag, obs, anulado, criadoPor, criadoEm}
-   entidades/{id}:      {nome, nif, telefone, email, morada, obs}   (fornecedores)
+   movimentos/{id}:     {tipo: "Saída", data, descricao, valor, forma, motivo, anulado, criadoPor, criadoNome, criadoEm}   (versão 5.3: só saídas de valores)
+                        (versões 1–5.2: tipo Receita|Despesa|Transferência, com conta Caixa|Banco, fornecedor, estado pago|porPagar… — ainda se leem)
+   entidades/{id}:      fornecedores das versões 1–5.2 (já não se usam)
    fotos/{socioId}:     {img}  (foto da ficha, ~360×480 JPEG; só se lê ao abrir a ficha. A miniatura fica em socios.fotoMini)
    config/tesouraria:   {dataInicial, saldoInicial:{Caixa, Banco}}
    contadores/recibos-2026: {ultimo}   (último nº de recibo do ano; só se mexe numa transação)

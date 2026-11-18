@@ -42,27 +42,23 @@ function exportarExcel(){
       [18], [5, 6, 9], [6, 30, 18, 9, 16, 11, 11, 10, 10, 11, 11, 30, 12, 12, 26, 30, 10, 16, 11, 30]), "Sócios");
     const pags = D.pagamentos.slice().sort((a, b)=>String(a.data).localeCompare(String(b.data)) || (a.recibo ? a.recibo.num : 0) - (b.recibo ? b.recibo.num : 0));
     XLSX.utils.book_append_sheet(wb, folha(
-      ["Data", "Recibo", "Nº sócio", "Sócio", "Referente a", "Meses", "Forma", "Conta", "Total", "Vinhetas", "Anulado", "Motivo", "Recebido por"],
-      pags.map((p)=>[dataXL(p.data), p.recibo ? p.recibo.txt : "", p.numeroSocio || "", p.nomeSocio, refPag(p), (p.itens || []).filter((i)=>i.tipo === "Quota").length || "", p.forma, contaDaForma(p.forma),
+      ["Data", "Recibo", "Nº sócio", "Sócio", "Referente a", "Meses", "Forma", "Total", "Vinhetas", "Anulado", "Motivo", "Recebido por"],
+      pags.map((p)=>[dataXL(p.data), p.recibo ? p.recibo.txt : "", p.numeroSocio || "", p.nomeSocio, refPag(p), (p.itens || []).filter((i)=>i.tipo === "Quota").length || "", p.forma,
         euroXL(p.total), vinhetasDe(p).length ? `${vinhetasDe(p).length} (${vinhetasFalta(p).length ? vinhetasFalta(p).length + " por entregar" : "todas entregues"})` : "", p.anulado ? "Sim" : "", p.anulado ? p.anulado.motivo : "", p.recebidoPorNome || p.criadoPor || ""]),
-      [8], [0], [11, 11, 8, 28, 40, 7, 16, 8, 10, 20, 8, 24, 18]), "Pagamentos");
-    const movs = D.movimentos.slice().sort((a, b)=>String(a.data).localeCompare(String(b.data)));
+      [7], [0], [11, 11, 8, 28, 40, 7, 16, 10, 20, 8, 24, 18]), "Pagamentos");
+    // saídas de valores (e receitas/despesas das versões anteriores, se as houver)
+    const movs = D.movimentos.slice().sort((a, b)=>String(a.dataPag || a.data).localeCompare(String(b.dataPag || b.data)));
     XLSX.utils.book_append_sheet(wb, folha(
-      ["Data", "Tipo", "Categoria", "Descrição", "Conta", "Para", "Fornecedor", "Documento", "Estado", "Prazo", "Data pagamento", "Valor", "Anulado", "Motivo"],
-      movs.map((m)=>[dataXL(m.data), m.tipo, m.categoria || "", m.descricao, m.conta || "", m.contaDestino || "", m.entidadeNome || "", m.documento || "",
-        m.tipo === "Despesa" ? (m.estado === "pago" ? "Paga" : "Por pagar") : "", dataXL(m.prazo), dataXL(m.dataPag), euroXL(m.valor), m.anulado ? "Sim" : "", m.anulado ? m.anulado.motivo : ""]),
-      [11], [0, 9, 10], [11, 13, 22, 36, 8, 8, 22, 14, 10, 11, 13, 11, 8, 24]), "Tesouraria");
-    XLSX.utils.book_append_sheet(wb, folha(["Nome", "NIF", "Telefone", "Email", "Morada", "Observações"],
-      D.entidades.slice().sort((a, b)=>porTexto(a.nome, b.nome)).map((e)=>[e.nome, e.nif || "", e.telefone || "", e.email || "", e.morada || "", e.obs || ""]),
-      [], [], [30, 11, 13, 26, 34, 30]), "Fornecedores");
-    // contas do ano
+      ["Data", "Tipo", "Descrição", "Motivo da saída", "Forma", "Valor", "Anulada", "Motivo da anulação", "Registado por"],
+      movs.map((m)=>[dataXL(m.tipo === "Despesa" ? m.dataPag || m.data : m.data), m.tipo, m.descricao || "", m.tipo === "Saída" ? m.motivo || "" : motivoSaida(m),
+        m.forma || m.conta || "", euroXL(m.valor), m.anulado ? "Sim" : "", m.anulado ? m.anulado.motivo : "", m.criadoNome || m.criadoPor || ""]),
+      [5], [0], [11, 9, 36, 40, 14, 11, 8, 24, 22]), "Saídas");
+    // tesouraria do ano
     const Y = Number(hojeISO().slice(0, 4)), F = fluxos(), r = resumoAno(Y, F);
-    const linhas = [["Receitas", ""]].concat(ordenarCat(r.rec, ["Quotas", "Joias"].concat(listas().categoriasReceita)).map(([c, v])=>["   " + c, euroXL(v)]))
-      .concat([["Total de receitas", euroXL(r.totRec)], ["", ""], ["Despesas", ""]])
-      .concat(ordenarCat(r.des, listas().categoriasDespesa).map(([c, v])=>["   " + c, euroXL(v)]))
-      .concat([["Total de despesas", euroXL(r.totDes)], ["", ""], ["Resultado do ano", euroXL(r.totRec - r.totDes)], ["", ""],
-        ["Saldo atual em Caixa", euroXL(saldoAte("Caixa", null, F))], ["Saldo atual no Banco", euroXL(saldoAte("Banco", null, F))], ["Saldo atual total", euroXL(saldoAte(null, null, F))]]);
-    XLSX.utils.book_append_sheet(wb, folha(["Contas " + Y, "Valor"], linhas, [1], [], [34, 14]), "Contas " + Y);
+    const linhas = [["Saldo inicial (1 de janeiro)", euroXL(saldoAte((Y - 1) + "-12-31", F))], ["Entradas — quotas", euroXL(r.tot.quotas)], ["Entradas — joias", euroXL(r.tot.joias)]]
+      .concat(r.tot.outras ? [["Outras entradas (versões anteriores)", euroXL(r.tot.outras)]] : [])
+      .concat([["Saídas de valores", euroXL(-r.tot.saidas)], ["Saldo final (31 de dezembro)", euroXL(saldoAte(Y + "-12-31", F))], ["", ""], ["Saldo atual", euroXL(saldoAte(null, F))]]);
+    XLSX.utils.book_append_sheet(wb, folha(["Tesouraria " + Y, "Valor"], linhas, [1], [], [36, 14]), "Tesouraria " + Y);
     const d = new Date(), z = (n)=>String(n).padStart(2, "0");
     XLSX.writeFile(wb, `Quotas_${d.getFullYear()}-${z(d.getMonth() + 1)}-${z(d.getDate())}.xlsx`);
   }).catch(()=>aviso("Não foi possível criar o ficheiro Excel. Na primeira vez o aparelho precisa de internet."));
