@@ -38,6 +38,18 @@ RENDER.inicio = function(){
     .concat(vin.length > 8 ? [`<tr><td colspan="2" class="pequeno">… e mais ${vin.length - 8} sócio(s)</td></tr>`] : []),
     "Nenhuma vinheta por entregar.");
 
+  // aniversariantes de hoje (quem nasceu a 29/fev festeja a 28/fev nos anos que não são bissextos)
+  const hoje = hojeISO(), mdHoje = hoje.slice(5, 10), ehBissexto = (y)=> y % 4 === 0 && (y % 100 !== 0 || y % 400 === 0);
+  const fazAnosHoje = (s)=>{ const md = String(s.dataNascimento || "").slice(5, 10);
+    return md === mdHoje || (md === "02-29" && mdHoje === "02-28" && !ehBissexto(Number(hoje.slice(0, 4)))); };
+  const hojeAniv = ativos.filter(fazAnosHoje).sort(porNumero);
+  $("ini-hoje-tit").textContent = hojeAniv.length ? `🎂 ANIVERSARIANTES DE HOJE (${hojeAniv.length})` : "🎂 ANIVERSARIANTES DE HOJE";
+  $("ini-hoje").innerHTML = tabela([{t: "Nº", num: true}, {t: "Sócio"}, {t: "Faz", num: true}],
+    hojeAniv.map((s)=>`<tr class="clic" data-id="${esc(s.id)}"><td class="num">${s.numero || "—"}</td><td><b>${esc(s.nome)}</b></td>
+      <td class="num">${Number(hoje.slice(0, 4)) - Number(s.dataNascimento.slice(0, 4))} anos</td></tr>`),
+    "Nenhum sócio faz anos hoje.");
+  $("ini-hoje").querySelectorAll("tr.clic").forEach((tr)=>tr.onclick = ()=>abrirSocio(tr.dataset.id));
+
   const aniv = ativos.filter((s)=>String(s.dataNascimento || "").slice(5, 7) === mesNum)
     .sort((a, b)=>a.dataNascimento.slice(8, 10) - b.dataNascimento.slice(8, 10));
   $("ini-aniv").innerHTML = tabela([{t: "Dia"}, {t: "Sócio"}, {t: "Idade", num: true}],

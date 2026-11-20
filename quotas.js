@@ -122,41 +122,103 @@ function listaMeses(ms){
   return ms.slice(0, -1).map(rotVinheta).join(", ") + " e " + rotVinheta(ms[ms.length - 1]);
 }
 const nVinhetas = (n)=> n + (n === 1 ? " vinheta" : " vinhetas");
-function entregarVinhetas(pagId, meses){
-  if(!eTes()) return;
-  const p = D.pagamentos.find((x)=>x.id === pagId); if(!p || !meses.length) return;
-  const quem = {por: Store.utilizador(), nome: nomeUtilizador || "", em: Date.now()};
-  const legado = meses.filter((m)=>m.length === 4), mensais = meses.filter((m)=>m.length === 7);
-  const dados = {};
-  if(mensais.length){ const ent = {...(p.vinhetasEntregues || {})}; for(const m of mensais) ent[m] = quem; dados.vinhetasEntregues = ent; }
-  if(legado.length) dados.vinhetaEntregue = quem;
-  gravar([{tipo: "update", col: "pagamentos", id: pagId, dados}]);
-  toast(meses.length === 1 ? `Vinheta ${rotVinheta(meses[0])} entregue.` : `${meses.length} vinhetas entregues.`);
+/* versão 5.5: as vinhetas entregam-se por ordem. Entregar um mês entrega também todos os anteriores desse sócio. */
+const chaveMes = (m)=> m.length === 4 ? m + "-00" : m;
+/* todas as vinhetas de um sócio, por ordem do mês: [{mes, entregue, pagId}] */
+function vinhetasDoSocio(socioId){
+  return D.pagamentos.filter((p)=>p.socioId === socioId).flatMap((p)=>vinhetasDe(p).map((v)=>({...v, pagId: p.id})))
+    .sort((a, b)=>chaveMes(a.mes).localeCompare(chaveMes(b.mes)));
 }
-/* botões dos meses por entregar: cada um marca a sua; «Todas» marca as do pagamento */
-function htmlBotoesVinhetas(p){
-  const falta = vinhetasFalta(p);
-  return `<span class="vin-meses">${falta.map((m)=>eTes() ? `<button class="vin-mes" data-vin-pag="${esc(p.id)}" data-vin-mes="${esc(m)}" title="Marcar como entregue">${esc(rotVinheta(m))}</button>`
-      : `<span class="vin-mes so-ver">${esc(rotVinheta(m))}</span>`).join("")}</span>
-    ${eTes() && falta.length > 1 ? `<button class="bt peq" data-vin-todas="${esc(p.id)}">Entregar as ${falta.length}</button>` : ""}`;
+/* «de … a …» */
+const deAte = (ms)=> !ms.length ? "" : ms.length === 1 ? rotVinheta(ms[0]) : rotVinheta(ms[0]) + " a " + rotVinheta(ms[ms.length - 1]);
+const ultimaEntregue = (lista)=>{ const e = lista.filter((v)=>v.entregue); return e.length ? e[e.length - 1].mes : null; };
+/* operações para entregar todas as vinhetas por entregar do sócio até ao mês indicado (inclusive) */
+function opsEntregarAte(socioId, mes){
+  const quem = {por: Store.utilizador(), nome: nomeUtilizador || "", em: Date.now()}, porPag = new Map();
+  let n = 0;
+  for(const v of vinhetasDoSocio(socioId)) if(!v.entregue && chaveMes(v.mes) <= chaveMes(mes)){
+    if(!porPag.has(v.pagId)) porPag.set(v.pagId, []);
+    porPag.get(v.pagId).push(v.mes); n++;
+  }
+  const ops = [];
+  for(const [pagId, meses] of porPag){
+    const p = D.pagamentos.find((x)=>x.id === pagId), dados = {};
+    const mensais = meses.filter((m)=>m.length === 7);
+    if(mensais.length){ const ent = {...(p.vinhetasEntregues || {})}; for(const m of mensais) ent[m] = quem; dados.vinhetasEntregues = ent; }
+    if(meses.some((m)=>m.length === 4)) dados.vinhetaEntregue = quem;
+    ops.push({tipo: "update", col: "pagamentos", id: pagId, dados});
+  }
+  return {ops, n};
 }
-/* liga os botões das vinhetas dentro de um elemento */
+function entregarVinhetasAte(socioId, mes){
+  if(!eTes()) return 0;
+  const r = opsEntregarAte(socioId, mes);
+  if(!r.n) return 0;
+  gravar(r.ops);
+  toast(r.n === 1 ? `Vinheta ${rotVinheta(mes)} entregue.` : `${r.n} vinhetas entregues (até ${rotVinheta(mes)}).`);
+  return r.n;
+}
+/* grelha de meses para escolher: marcar um mês marca os anteriores; desmarcar desmarca os seguintes */
+const htmlGrelhaVinhetas = (meses, marcados)=> `<div class="pequeno">Marque o último mês que entrega: os meses anteriores ficam marcados também.</div>
+  <div class="vin-grelha">${meses.map((m)=>`<label><input type="checkbox" data-mes="${esc(m)}" ${marcados.has(m) ? "checked" : ""}> ${esc(rotVinheta(m))}</label>`).join("")}</div>`;
+function ligarGrelhaVinhetas(el, aoMudar){
+  const cx = [...el.querySelectorAll(".vin-grelha input[data-mes]")];
+  cx.forEach((x, i)=>{ x.onclick = (e)=>e.stopPropagation(); x.onchange = ()=>{
+    cx.forEach((y, j)=>{ if(x.checked ? j <= i : j >= i) y.checked = x.checked; });
+    aoMudar();
+  }; });
+}
+const marcadosGrelha = (el)=> [...el.querySelectorAll(".vin-grelha input[data-mes]:checked")].map((x)=>x.dataset.mes);
+/* frase «Entregues: … · Por entregar: …» para uma escolha */
+function fraseEscolha(meses, marc){
+  const ent = meses.filter((m)=>marc.includes(m)), falta = meses.filter((m)=>!marc.includes(m));
+  if(!ent.length) return "";
+  if(!falta.length) return `Entregar: todas (${deAte(ent)})`;
+  return `Entregar: ${deAte(ent)} · Ficam por entregar: ${deAte(falta)}`;
+}
+/* caixa das vinhetas de um sócio: resumo (quantas, de/até) + botão «Entregar vinhetas…» que mostra os meses.
+   Coloca-se com <div class="vin-caixa" data-vin-socio="ID"> (data-aberta: já com os meses à vista) e liga-se com ligarVinhetas. */
+const htmlCaixaVinhetas = (socioId, aberta)=> `<div class="vin-caixa" data-vin-socio="${esc(socioId)}"${aberta ? " data-aberta" : ""}></div>`;
 function ligarVinhetas(el){
   if(!el) return;
-  el.querySelectorAll("[data-vin-mes]").forEach((b)=>b.onclick = (e)=>{
-    e.stopPropagation(); entregarVinhetas(b.dataset.vinPag, [b.dataset.vinMes]);
-    b.outerHTML = `<span class="vin-mes ok">${esc(b.textContent)} ✓</span>`;
-  });
-  el.querySelectorAll("[data-vin-todas]").forEach((b)=>b.onclick = (e)=>{
-    e.stopPropagation(); const p = D.pagamentos.find((x)=>x.id === b.dataset.vinTodas); if(!p) return;
-    entregarVinhetas(p.id, vinhetasFalta(p));
-    const caixa = b.parentElement; caixa.querySelectorAll(`[data-vin-pag="${CSS.escape(p.id)}"]`).forEach((x)=>{ x.outerHTML = `<span class="vin-mes ok">${esc(x.textContent)} ✓</span>`; });
-    b.remove();
+  el.querySelectorAll(".vin-caixa[data-vin-socio]").forEach((caixa)=>{
+    const socioId = caixa.dataset.vinSocio, todas = vinhetasDoSocio(socioId);
+    let pend = todas.filter((v)=>!v.entregue).map((v)=>v.mes), ultima = ultimaEntregue(todas), aberta = "aberta" in caixa.dataset;
+    const desenhar = ()=>{
+      if(!pend.length){
+        caixa.innerHTML = ultima ? `<div class="vinheta-pend vin-ok">🏷️ Vinhetas: todas entregues ✓ <span class="pequeno">(até ${esc(rotVinheta(ultima))})</span></div>` : "";
+        return;
+      }
+      const jaTxt = ultima ? `Já entregues até ${rotVinheta(ultima)}` : "Nenhuma entregue", ja = esc(jaTxt);
+      caixa.innerHTML = `<div class="vinheta-pend">
+        <div>🏷️ <b>${nVinhetas(pend.length)} por entregar</b> — <b>${esc(deAte(pend))}</b></div>
+        <div class="pequeno vin-estado">${ja}</div>
+        ${eTes() ? `<div><button class="bt peq" data-vin-abrir ${aberta ? "hidden" : ""}>Entregar vinhetas…</button></div>
+        <div class="vin-painel" ${aberta ? "" : "hidden"}>${htmlGrelhaVinhetas(pend, new Set())}
+          <div class="linha" style="justify-content:flex-end;gap:8px"><button class="bt sec peq" data-vin-cancelar>Cancelar</button>
+          <button class="bt verde peq" data-vin-ok disabled>Confirmar entrega</button></div></div>` : ""}</div>`;
+      if(!eTes()) return;
+      const q = (s)=>caixa.querySelector(s);
+      caixa.querySelector(".vinheta-pend").onclick = (e)=>e.stopPropagation();
+      ligarGrelhaVinhetas(caixa, ()=>{
+        const marc = marcadosGrelha(caixa);
+        q(".vin-estado").textContent = fraseEscolha(pend, marc) || jaTxt;
+        q("[data-vin-ok]").disabled = !marc.length;
+        q("[data-vin-ok]").textContent = marc.length ? `Confirmar entrega (${marc.length})` : "Confirmar entrega";
+      });
+      q("[data-vin-abrir]").onclick = ()=>{ aberta = true; q("[data-vin-abrir]").hidden = true; q(".vin-painel").hidden = false; };
+      q("[data-vin-cancelar]").onclick = ()=>{ aberta = "aberta" in caixa.dataset; desenhar(); };
+      q("[data-vin-ok]").onclick = ()=>{
+        const marc = marcadosGrelha(caixa); if(!marc.length) return;
+        const ate = marc[marc.length - 1];
+        entregarVinhetasAte(socioId, ate);
+        pend = pend.filter((m)=>chaveMes(m) > chaveMes(ate)); ultima = ate;
+        aberta = "aberta" in caixa.dataset; desenhar();
+      };
+    };
+    desenhar();
   });
 }
-const htmlVinhetasPend = (lista)=> lista.map((p)=>{ const n = vinhetasFalta(p).length;
-  return `<div class="vinheta-pend"><div>🏷️ <b>${nVinhetas(n)} por entregar</b> <span class="pequeno">(pago em ${dataPT(p.data)}${p.recibo ? ", recibo " + esc(p.recibo.txt) : ""})</span></div>
-    <div class="vin-linha">${htmlBotoesVinhetas(p)}</div></div>`; }).join("");
 
 /* ---------- ecrã Quotas ---------- */
 let pagAberto = null;      // pagamento aberto na janela (atualiza-se quando recebe o nº de recibo)
@@ -251,16 +313,26 @@ $("q-pag-pesq").addEventListener("input", ()=>desenharPagamentos());
 
 function desenharVinhetas(){
   const q = $("q-vin-pesq").value;
-  const lista = vinhetasPendentes().filter((p)=>{ const s = Idx.socio.get(p.socioId); return corresponde(q, s ? s.nome : p.nomeSocio, s ? s.numero : p.numeroSocio); });
-  const total = lista.reduce((t, p)=>t + vinhetasFalta(p).length, 0);
+  const ids = [...new Set(vinhetasPendentes().map((p)=>p.socioId))];
+  const linhas = ids.map((id)=>{ const todas = vinhetasDoSocio(id), p0 = D.pagamentos.find((p)=>p.socioId === id);
+      return {id, s: Idx.socio.get(id), nome: p0 && p0.nomeSocio, numero: p0 && p0.numeroSocio, pend: todas.filter((v)=>!v.entregue).map((v)=>v.mes), ultima: ultimaEntregue(todas)}; })
+    .filter((x)=>corresponde(q, x.s ? x.s.nome : x.nome, x.s ? x.s.numero : x.numero))
+    .sort((a, b)=>porNumero(a.s || {}, b.s || {}));
+  const total = linhas.reduce((t, x)=>t + x.pend.length, 0);
   $("q-vin-tit").textContent = `${nVinhetas(total)} por entregar`;
-  $("q-vin-lista").innerHTML = tabela([{t: "Nº", num: true}, {t: "Sócio"}, {t: "Vinhetas por entregar (toque no mês quando a entregar)"}, {t: "Pago em", cl: "so-largo"}, {t: "Recibo", cl: "so-largo"}],
-    lista.slice().sort((a, b)=>porNumero(Idx.socio.get(a.socioId) || {}, Idx.socio.get(b.socioId) || {}) || String(a.data).localeCompare(String(b.data))).map((p)=>{ const s = Idx.socio.get(p.socioId);
-      return `<tr class="clic" data-id="${esc(p.id)}"><td class="num">${s ? s.numero || "—" : p.numeroSocio || "—"}</td><td>${esc(s ? s.nome : p.nomeSocio)}</td>
-        <td class="vin-linha">${htmlBotoesVinhetas(p)}</td><td class="so-largo">${dataPT(p.data)}</td><td class="so-largo">${p.recibo ? esc(p.recibo.txt) : "—"}</td></tr>`; }),
+  $("q-vin-lista").innerHTML = tabela([{t: "Nº", num: true}, {t: "Sócio"}, {t: "Por entregar", num: true}, {t: "De / até"}, {t: "Já entregues até", cl: "so-largo"}, {t: ""}],
+    linhas.map((x)=>`<tr class="clic" data-id="${esc(x.id)}"><td class="num">${x.s ? x.s.numero || "—" : x.numero || "—"}</td><td>${esc(x.s ? x.s.nome : x.nome)}</td>
+      <td class="num"><b>${x.pend.length}</b></td><td>${esc(deAte(x.pend))}</td><td class="so-largo">${x.ultima ? esc(rotVinheta(x.ultima)) : "—"}</td>
+      <td>${eTes() ? `<button class="bt peq" data-vin-entregar="${esc(x.id)}">Entregar…</button>` : ""}</td></tr>`),
     q ? "Nenhuma vinheta corresponde à pesquisa." : "Não há vinhetas por entregar. 👍");
-  ligarVinhetas($("q-vin-lista"));
-  $("q-vin-lista").querySelectorAll("tr.clic").forEach((tr)=>tr.onclick = ()=>abrirPagamento(tr.dataset.id));
+  $("q-vin-lista").querySelectorAll("tr.clic").forEach((tr)=>tr.onclick = ()=>abrirVinhetasSocio(tr.dataset.id));
+}
+/* janela com as vinhetas por entregar de um sócio (os meses já à vista) */
+function abrirVinhetasSocio(socioId){
+  const s = Idx.socio.get(socioId), p0 = D.pagamentos.find((p)=>p.socioId === socioId);
+  janela("Vinhetas — " + (s ? s.nome : (p0 && p0.nomeSocio) || ""), `<p><b>${esc(s ? s.nome : (p0 && p0.nomeSocio) || "")}</b> (${s ? numTxt(s) : "nº " + ((p0 && p0.numeroSocio) || "—")})</p>
+    ${htmlCaixaVinhetas(socioId, eTes())}`, [{texto: "Fechar", classe: "sec", id: "vin-fechar"}], true);
+  ligarVinhetas($("modal-corpo"));
 }
 $("q-vin-pesq").addEventListener("input", ()=>desenharVinhetas());
 
@@ -290,11 +362,11 @@ function abrirReceber(socioId){
 }
 function carregarSocioReceber(socioId){
   const s = socioId ? Idx.socio.get(socioId) : null;
-  R = {socioId: s ? s.id : null, pode: false, joia: 0};
+  // vinhetas de pagamentos anteriores ainda por entregar (entram na mesma escolha, por ordem)
+  R = {socioId: s ? s.id : null, pode: false, joia: 0, vinAntes: s ? vinhetasDoSocio(s.id).filter((v)=>!v.entregue).map((v)=>v.mes) : [], vinAberta: false};
   $("r-erro").style.display = "none";
   let info = "";
   if(s){
-    const pend = vinhetasPendentes(s.id);
     if(tipoIsento(s.tipo)) info = `<div class="aviso">O tipo «${esc(s.tipo)}» está isento de quotas.</div>`;
     else if(!s.dataEntrada) info = `<div class="aviso forte">Este sócio não tem data de inscrição. Preencha a ficha para calcular as quotas.
       <div style="margin-top:6px"><button class="bt sec peq" id="r-abrir-ficha">Abrir a ficha</button></div></div>`;
@@ -307,10 +379,8 @@ function carregarSocioReceber(socioId){
         + (sit.divida ? `<div class="atraso">QUOTAS EM ATRASO: <b>${esc(resumoFalta(sit.falta))}</b> — <b>${eur(sit.divida)}</b></div>` : "")
         + (R.joia ? `<label class="r-joia"><input type="checkbox" id="r-joia" checked style="width:22px;height:22px"> Joia de inscrição <b>${eur(R.joia)}</b></label>` : "");
     }
-    info += htmlVinhetasPend(pend);
   }
   $("r-info").innerHTML = info;
-  ligarVinhetas($("r-info"));
   if($("r-abrir-ficha")) $("r-abrir-ficha").onclick = ()=>{ fecharJanela(); abrirSocio(s.id); };
   if($("r-joia")) $("r-joia").onchange = atualizarReceber;
   $("r-meses").value = "";       // vem sempre vazio: escreve-se o nº de meses que o sócio paga
@@ -330,19 +400,25 @@ function calcReceber(){
 function atualizarReceber(){
   if(!$("r-total")) return;
   const c = calcReceber();
-  // meses já marcados como entregues (para não se perderem ao mudar o nº de meses)
-  const marcados = new Set([...document.querySelectorAll("#r-vinheta input[data-mes]:checked")].map((x)=>x.dataset.mes));
+  // meses já marcados (para não se perderem ao mudar o nº de meses)
+  const marcados = new Set(marcadosGrelha($("r-vinheta")));
   $("r-ref").innerHTML = !c.nOk ? `<div class="aviso">O nº de meses tem de ser um número inteiro entre 0 e ${MAX_MESES}.</div>`
     : c.meses.length || c.joia ? `<div class="r-ref">Referente a: <b>${esc([c.joia ? "Joia" : "", refMeses(c.meses)].filter(Boolean).join(" + "))}</b></div>` : "";
-  const n = c.meses.length;
-  $("r-vinheta").innerHTML = n ? `<div class="vinheta-faixa">🏷️ ENTREGAR ${n === 1 ? "1 VINHETA" : n + " VINHETAS"} — ${esc(listaMeses(c.meses))}
-      <div class="pequeno">Marque as vinhetas que entrega agora; as outras ficam por entregar.</div>
-      <div class="vin-grelha">${c.meses.map((m)=>`<label><input type="checkbox" data-mes="${m}" ${marcados.has(m) ? "checked" : ""}> ${esc(rotMes(m))}</label>`).join("")}</div>
-      ${n > 1 ? `<button class="bt sec peq" id="r-vin-todas" type="button">Marcar todas</button>` : ""}</div>` : "";
-  if($("r-vin-todas")) $("r-vin-todas").onclick = ()=>{
-    const cx = [...document.querySelectorAll("#r-vinheta input[data-mes]")], todas = cx.every((x)=>x.checked);
-    cx.forEach((x)=>{ x.checked = !todas; }); $("r-vin-todas").textContent = todas ? "Marcar todas" : "Desmarcar todas";
-  };
+  const todos = (R ? R.vinAntes : []).concat(c.meses), n = todos.length, antes = n - c.meses.length;
+  $("r-vinheta").innerHTML = n ? `<div class="vinheta-faixa">🏷️ ${c.meses.length ? "ENTREGAR" : "POR ENTREGAR:"} ${n === 1 ? "1 VINHETA" : n + " VINHETAS"} — ${esc(deAte(todos))}
+      ${antes ? `<div class="pequeno">(inclui ${nVinhetas(antes)} de pagamentos anteriores)</div>` : ""}
+      <div class="vin-estado-r"></div>
+      <button class="bt peq" id="r-vin-abrir" type="button" ${R.vinAberta ? "hidden" : ""}>Entregar vinhetas…</button>
+      <div class="vin-painel" ${R.vinAberta ? "" : "hidden"}>${htmlGrelhaVinhetas(todos, marcados)}
+        <button class="bt sec peq" id="r-vin-fechar" type="button">Esconder os meses</button></div></div>` : "";
+  if(n){
+    const estado = ()=>{ const marc = marcadosGrelha($("r-vinheta"));
+      $("r-vinheta").querySelector(".vin-estado-r").textContent = !marc.length ? "Entregues: nenhuma"
+        : marc.length === n ? `Entregues: todas (${deAte(marc)})` : `Entregues: ${deAte(marc)} · Por entregar: ${deAte(todos.filter((m)=>!marc.includes(m)))}`; };
+    ligarGrelhaVinhetas($("r-vinheta"), estado); estado();
+    $("r-vin-abrir").onclick = ()=>{ R.vinAberta = true; $("r-vin-abrir").hidden = true; $("r-vinheta").querySelector(".vin-painel").hidden = false; };
+    $("r-vin-fechar").onclick = ()=>{ R.vinAberta = false; $("r-vin-abrir").hidden = false; $("r-vinheta").querySelector(".vin-painel").hidden = true; };
+  }
   $("r-total").textContent = eur(c.total);
 }
 function gravarRecebimento(){
@@ -352,15 +428,22 @@ function gravarRecebimento(){
   if(tipoIsento(s.tipo)) return erro(`O tipo «${s.tipo}» está isento de quotas.`);
   if(!s.dataEntrada) return erro("Este sócio não tem data de inscrição. Preencha a ficha primeiro.");
   if(!c.nOk) return erro(`O nº de meses tem de ser um número inteiro entre 0 e ${MAX_MESES}.`);
-  if(!c.meses.length && !c.joia) return erro("Indique o nº de meses a pagar.");
+  const marc = marcadosGrelha($("r-vinheta")), ate = marc.length ? marc[marc.length - 1] : null;
+  if(!c.meses.length && !c.joia){
+    // só entrega vinhetas de pagamentos anteriores, sem receber dinheiro
+    if(ate && !c.n){ fecharJanela(); entregarVinhetasAte(s.id, ate); return; }
+    return erro("Indique o nº de meses a pagar.");
+  }
   if(c.meses.length < c.n) return erro(`Só é possível pagar ${c.meses.length} ${c.meses.length === 1 ? "mês" : "meses"} a este sócio.`);
   const data = $("r-data").value;
   if(!data || data > hojeISO()) return erro("Data inválida (não pode ser no futuro).");
   const itens = (c.joia ? [{tipo: "Joia", periodo: "joia", rot: "Joia", valor: c.joia}] : [])
     .concat(c.meses.map((m)=>({tipo: "Quota", periodo: m, rot: rotMes(m), valor: valorMes(m)})));
+  // vinhetas: entregues por ordem até ao último mês marcado (as de pagamentos anteriores também)
   const quem = {por: Store.utilizador(), nome: nomeUtilizador || "", em: Date.now()}, entregues = {};
-  document.querySelectorAll("#r-vinheta input[data-mes]:checked").forEach((x)=>{ if(c.meses.includes(x.dataset.mes)) entregues[x.dataset.mes] = quem; });
-  const nFalta = c.meses.length - Object.keys(entregues).length;
+  for(const m of c.meses) if(ate && chaveMes(m) <= chaveMes(ate)) entregues[m] = quem;
+  const antigas = ate ? opsEntregarAte(s.id, ate) : {ops: [], n: 0};
+  const nFalta = R.vinAntes.length + c.meses.length - Object.keys(entregues).length - antigas.n;
   const id = "P" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
   const dados = {socioId: s.id, numeroSocio: s.numero || null, nomeSocio: s.nome, data, forma: $("r-forma").value,
     itens, meses: c.meses.length, total: c.total, obs: $("r-obs").value.trim(), anulado: null,
@@ -368,7 +451,7 @@ function gravarRecebimento(){
     recebidoPorNome: nomeUtilizador, recibo: null, ...carimbo(true)};
   fecharJanela();
   // grava; quando chegar ao servidor recebe o nº de recibo (sem internet fica à espera)
-  gravar([{tipo: "set", col: "pagamentos", id, dados}]).then(()=>numerarPendentes()).catch(()=>{});
+  gravar([{tipo: "set", col: "pagamentos", id, dados}].concat(antigas.ops)).then(()=>numerarPendentes()).catch(()=>{});
   toast(`Pagamento de ${eur(dados.total)} registado.` + (nFalta ? ` ${nVinhetas(nFalta)} por entregar.` : ""));
   abrirPagamento(id, dados);
 }
@@ -381,10 +464,10 @@ function abrirPagamento(id, provisorio){
   pagAberto = {id, assin: JSON.stringify([p.recibo, p.anulado, p.vinhetaEntregue, p.vinhetasEntregues])};
   const recTxt = p.recibo ? `<span class="chip">Recibo nº ${esc(p.recibo.txt)}</span>`
     : `<span class="chip verm">Recibo a aguardar nº</span> <span class="pequeno">(recebe o nº quando houver internet)</span>`;
-  const vs = vinhetasDe(p), ent = vs.filter((v)=>v.entregue), falta = vs.filter((v)=>!v.entregue);
-  const vin = !vs.length ? "" : `<div class="vinheta-pend"><div>🏷️ <b>${nVinhetas(vs.length)}</b>: ${ent.length ? `${ent.length} entregue${ent.length === 1 ? "" : "s"}` : "nenhuma entregue"}${falta.length ? ` · <b>${falta.length} por entregar</b>` : " ✓"}</div>
-      ${ent.length ? `<div class="pequeno">Entregues: ${esc(listaMeses(ent.map((v)=>v.mes)))}</div>` : ""}
-      ${falta.length ? `<div class="vin-linha">${htmlBotoesVinhetas(p)}</div>` : ""}</div>`;
+  const vs = vinhetasDe(p), ent = vs.filter((v)=>v.entregue).map((v)=>v.mes), falta = vs.filter((v)=>!v.entregue).map((v)=>v.mes);
+  const vin = !vs.length ? "" : `<p class="pequeno">🏷️ Vinhetas deste pagamento: <b>${nVinhetas(vs.length)}</b> (${esc(deAte(vs.map((v)=>v.mes)))}) · ${!ent.length ? "nenhuma entregue"
+      : !falta.length ? "todas entregues ✓" : `entregues: ${esc(deAte(ent))} · por entregar: ${esc(deAte(falta))}`}</p>
+    ${falta.length ? htmlCaixaVinhetas(p.socioId) : ""}`;
   const corpo = `<p>${recTxt}</p>
     <p><b>${esc(s ? s.nome : p.nomeSocio)}</b> (${s ? numTxt(s) : "nº " + (p.numeroSocio || "—")}) · ${dataPT(p.data)} · ${esc(p.forma)}</p>
     ${tabela([{t: "Referente a"}, {t: "Valor", num: true}], linhasPag(p).map(([d, v])=>`<tr><td>${esc(d)}</td><td class="num">${eur(v)}</td></tr>`)
@@ -423,7 +506,7 @@ function htmlQuotasSocio(s){
       : `<span class="chip verde">Quotas em dia</span>`) + ` <span class="pequeno">· pagas até <b>${ate ? rotMes(ate) : "—"}</b></span>`;
   return `<div class="linha quebra" style="justify-content:space-between"><span>${estado}</span>
       ${eTes() ? `<button class="bt sec peq" id="f-receber">Receber pagamento</button>` : ""}</div>
-    ${htmlVinhetasPend(vinhetasPendentes(s.id))}
+    ${htmlCaixaVinhetas(s.id)}
     ${pags.length ? `<div class="rolar" style="margin-top:6px">${tabela([{t: "Data"}, {t: "Referente a"}, {t: "Total", num: true}],
       pags.map((p)=>`<tr class="clic ${p.anulado ? "anulado" : ""}" data-pag="${esc(p.id)}"><td>${dataPT(p.data)}${p.recibo ? `<div class="pequeno">${esc(p.recibo.txt)}</div>` : ""}</td><td class="itens">${esc(refPag(p))}</td>
         <td class="num">${p.anulado ? "Anulado" : eur(p.total)}</td></tr>`), "")}</div>` : `<div class="nota">Ainda sem pagamentos registados.</div>`}`;

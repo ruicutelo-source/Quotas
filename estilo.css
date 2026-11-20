@@ -209,3 +209,12 @@ body.modo-teste header .marca::after{content:"VERSÃO DE TESTES";font-size:11px;
 .vin-grelha label{display:inline-flex;gap:6px;align-items:center;font-size:14px;font-weight:700;cursor:pointer;background:#fff;border-radius:8px;padding:5px 10px}
 .vin-grelha input{width:18px;height:18px}
 .chip.amarelo{background:#FFF0B3;color:#7A5B00}
+
+/* versão 5.5: vinhetas por ordem (resumo + botão que mostra os meses) e aniversariantes de hoje */
+[hidden]{display:none!important}
+.vin-painel{margin-top:6px}
+.vinheta-faixa .vin-estado-r{font-size:14px;font-weight:700;margin:4px 0 8px}
+.vinheta-faixa .vin-painel .pequeno{margin:4px 0}
+.vinheta-pend .vin-painel .linha{margin-top:4px}
+.vinheta-pend.vin-ok{background:var(--verde-cl);border-color:var(--verde)}
+.aniv-hoje td{font-size:15px}
