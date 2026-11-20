@@ -218,3 +218,7 @@ body.modo-teste header .marca::after{content:"VERSÃO DE TESTES";font-size:11px;
 .vinheta-pend .vin-painel .linha{margin-top:4px}
 .vinheta-pend.vin-ok{background:var(--verde-cl);border-color:var(--verde)}
 .aniv-hoje td{font-size:15px}
+.limpar-op{display:flex;gap:10px;align-items:flex-start;border:2px solid var(--borda, #ccd);border-radius:10px;padding:10px 12px;margin:8px 0;cursor:pointer}
+.limpar-op input{width:20px;height:20px;margin-top:2px;flex:none}
+.limpar-op:has(input:checked){border-color:var(--navy);background:#EEF2FA}
+.limpar-op.verm:has(input:checked){border-color:var(--verm);background:#FDECEC}

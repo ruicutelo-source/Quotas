@@ -257,26 +257,58 @@ function descarregarCopia(){
     return nome;
   });
 }
+/* duas formas de limpar (versão 5.5):
+   «contas»: apaga só a parte contabilística (pagamentos de quotas e joias com as vinhetas, saídas e saldo inicial da tesouraria,
+             numeração dos recibos); ficam as fichas dos sócios com NIF/NIB, fotos, agregados, cargos e fornecedores.
+   «tudo»:   põe o programa a zeros (também os sócios, NIF/NIB, fotos, cargos e fornecedores). */
 $("clb-limpar").onclick = ()=>{
   if(MODO_FIREBASE && Store.utilizador() !== ADMIN_PRINCIPAL) return;
-  const n = {socios: D.socios.length, pagamentos: D.pagamentos.length, cargos: D.cargos.length, movimentos: D.movimentos.length, entidades: D.entidades.length};
-  janela("Limpar dados", `<p>Vai apagar <b>${n.socios}</b> sócio(s), <b>${n.pagamentos}</b> pagamento(s), <b>${n.cargos}</b> cargo(s), <b>${n.movimentos}</b> saída(s) de tesouraria e <b>${n.entidades}</b> fornecedor(es), com os NIF e NIB. A numeração dos recibos volta ao início.
-      <b>Não se pode desfazer.</b></p>
-    <p class="nota">Primeiro é descarregada uma cópia de tudo (ficheiro <b>Quotas_copia_….json</b> nas Transferências). Guarde-a.</p>
-    <label class="campo">Para confirmar, escreva APAGAR</label><input type="text" id="limpar-conf" autocomplete="off">
+  const n = {socios: D.socios.length, pagamentos: D.pagamentos.length, cargos: D.cargos.length, movimentos: D.movimentos.length, entidades: D.entidades.length,
+    fotos: D.socios.filter((s)=>s.fotoMini).length, saldo: !!D.config.find((c)=>c.id === "tesouraria")};
+  const s = (k, um, varios)=> `<b>${n[k]}</b> ${n[k] === 1 ? um : varios}`;
+  const txt = {
+    contas: `<p>Vai apagar ${s("pagamentos", "pagamento", "pagamentos")} de quotas e joias (com as vinhetas), ${s("movimentos", "saída", "saídas")} de tesouraria${n.saldo ? " e o saldo inicial" : ""}.
+      A numeração dos recibos volta ao início.</p>
+      <p>Ficam as fichas dos ${s("socios", "sócio", "sócios")} (com NIF/NIB, ${n.fotos} foto${n.fotos === 1 ? "" : "s"}, agregados e «quotas pagas até»), os cargos, os fornecedores,
+      os dados do clube, os valores, as listas e os utilizadores. <b>Não se pode desfazer.</b></p>`,
+    tudo: `<p>Vai apagar ${s("socios", "sócio", "sócios")} (com NIF/NIB e fotos), ${s("pagamentos", "pagamento", "pagamentos")}, ${s("cargos", "cargo", "cargos")},
+      ${s("movimentos", "saída", "saídas")} de tesouraria${n.saldo ? ", o saldo inicial" : ""} e ${s("entidades", "fornecedor", "fornecedores")}. A numeração dos recibos volta ao início.</p>
+      <p>Ficam só os dados do clube, os valores, as listas e os utilizadores. <b>Não se pode desfazer.</b></p>`};
+  janela("Limpar dados", `<p>O que quer limpar?</p>
+    <label class="limpar-op"><input type="radio" name="limpar-tipo" value="contas"> <span><b>Só as contas</b><br>
+      <span class="pequeno">Apaga pagamentos, vinhetas, recibos e tesouraria. Mantém as fichas de inscrição dos sócios e as fotos.</span></span></label>
+    <label class="limpar-op verm"><input type="radio" name="limpar-tipo" value="tudo"> <span><b>Tudo — pôr o programa a zeros</b><br>
+      <span class="pequeno">Apaga também os sócios, as fotos, os cargos e os fornecedores.</span></span></label>
+    <div id="limpar-det" style="display:none">
+      <div id="limpar-txt"></div>
+      <p class="nota">Primeiro é descarregada uma cópia de tudo (ficheiro <b>Quotas_copia_….json</b> nas Transferências). Guarde-a.</p>
+      <label class="campo">Para confirmar, escreva APAGAR</label><input type="text" id="limpar-conf" autocomplete="off">
+    </div>
     <div class="aviso" id="limpar-erro" style="display:none"></div>`,
   [{texto: "Cancelar", classe: "sec", id: "limpar-cancelar"}, {texto: "Descarregar cópia e apagar", classe: "verm", id: "limpar-ok", manter: true, acao: ()=>{
-    if($("limpar-conf").value.trim() !== "APAGAR"){ $("limpar-erro").textContent = "Escreva APAGAR (em maiúsculas) para confirmar."; $("limpar-erro").style.display = "block"; return; }
+    const erro = (t)=>{ $("limpar-erro").textContent = t; $("limpar-erro").style.display = "block"; };
+    const op = document.querySelector('input[name="limpar-tipo"]:checked');
+    if(!op) return erro("Escolha o que quer limpar.");
+    if($("limpar-conf").value.trim() !== "APAGAR") return erro("Escreva APAGAR (em maiúsculas) para confirmar.");
+    const tudo = op.value === "tudo";
     fecharJanela(); toast("A guardar a cópia…");
     descarregarCopia().then((ficheiro)=>{
       const ops = [];
-      for(const c of ["pagamentos", "sociosPrivado", "socios", "cargos", "movimentos", "entidades"]) for(const x of D[c]) ops.push({tipo: "del", col: c, id: x.id});
-      for(const x of D.socios) if(x.fotoMini) ops.push({tipo: "del", col: "fotos", id: x.id});
+      const cols = tudo ? ["pagamentos", "sociosPrivado", "socios", "cargos", "movimentos", "entidades"] : ["pagamentos", "movimentos"];
+      for(const c of cols) for(const x of D[c]) ops.push({tipo: "del", col: c, id: x.id});
+      if(tudo) for(const x of D.socios) if(x.fotoMini) ops.push({tipo: "del", col: "fotos", id: x.id});
+      if(n.saldo) ops.push({tipo: "del", col: "config", id: "tesouraria"});
       // a numeração dos recibos volta ao início (próximo recibo = AAAA/0001)
       const anos = new Set(D.pagamentos.map((p)=>String(p.data).slice(0, 4)).concat(hojeISO().slice(0, 4)));
       for(const ano of anos) ops.push({tipo: "del", col: "contadores", id: "recibos-" + ano});
       toast("A apagar…");
-      return gravar(ops).then(()=>aviso(`Dados apagados. A cópia ficou guardada em ${ficheiro}.`, "Limpar dados"));
+      return gravar(ops).then(()=>aviso((tudo ? "Dados apagados: o programa ficou a zeros." : "Contas apagadas: as fichas dos sócios e as fotos ficaram.")
+        + ` A cópia ficou guardada em ${ficheiro}.`, "Limpar dados"));
     }).catch(()=>aviso("Não foi possível guardar a cópia; nada foi apagado.", "Limpar dados"));
   }}]);
+  document.querySelectorAll('input[name="limpar-tipo"]').forEach((r)=>r.onchange = ()=>{
+    $("limpar-txt").innerHTML = txt[r.value]; $("limpar-det").style.display = ""; $("limpar-erro").style.display = "none";
+    $("limpar-ok").textContent = r.value === "tudo" ? "Descarregar cópia e apagar tudo" : "Descarregar cópia e apagar as contas";
+    $("limpar-conf").focus();
+  });
 };
